@@ -300,15 +300,16 @@
       if (!porRef.has(k)) porRef.set(k, []);
       porRef.get(k).push(p);
     }
-    const vivas = (lista) => lista.some((p) => ["propuesta", "error"].includes(p.estado));
+    const vivas = (lista) => (lista || []).some((p) => ["propuesta", "error"].includes(p.estado));
     const mensajes = new Map(datos.mensajes.map((m) => [m.ref, m]));
     const grupos = [...porRef.entries()].filter(([, lista]) => vivas(lista)).reverse();
-    const recientes = datos.mensajes.filter((m) => !porRef.has(m.ref) || !vivas(porRef.get(m.ref))).slice(-40).reverse();
+    const recientes = datos.mensajes.filter((m) => !vivas(porRef.get(m.ref))).slice(-60).reverse();
     const nombreCuenta = (id) => datos.cuentas.find((c) => c.id === id)?.nombre || id;
     const descripcion = (p) =>
       ({
         leido: "Marcar como leído",
-        archivar: "Archivar (sacar de la bandeja de entrada; no se borra)",
+        archivar: "Archivar (sacar de la bandeja de entrada)",
+        papelera: "A la papelera (se puede recuperar durante 30 días)",
         etiquetar: `Etiquetar «Grossmart/${esc(p.etiqueta)}»`,
         borrador: "Guardar borrador (no se envía)",
       })[p.tipo] || esc(p.tipo);
@@ -324,7 +325,7 @@
               ${p.adjuntos?.length ? `<p class="ficha-meta">Adjuntos: ${p.adjuntos.map((a) => `📎 ${esc(a.nombre)}`).join(" · ")}</p>` : ""}
             </div>`
           : "";
-      return `<li class="propuesta ${activa ? "" : "cerrada"}">
+      return `<li class="propuesta ${activa ? "" : "cerrada"} ${p.tipo === "papelera" ? "propuesta-papelera" : ""}">
           <label class="casilla-propuesta"><input type="checkbox" class="elegir" value="${p.id}" ${activa ? "checked" : "disabled"}> ${descripcion(p)} ${estado}</label>
           ${p.error ? `<p class="pregunta">${esc(p.error)}</p>` : ""}
           ${borrador}
@@ -332,20 +333,27 @@
     };
     const tarjeta = (m, propuestas) => {
       const p = m?.proyecto ? proyecto(m.proyecto) : null;
-      return `<article class="correo ${m?.sospechoso ? "sospechoso" : ""}" style="--color-proyecto:${p?.color || "#7A6A55"}">
-        ${
-          m
-            ? `<header class="correo-cabecera">
-                <div><strong>${esc(m.de.nombre || m.de.direccion)}</strong> <small>&lt;${esc(m.de.direccion)}&gt;</small></div>
-                <div class="ficha-meta">${esc(nombreCuenta(m.cuenta))} · ${fecha(m.fecha)}${p ? ` · ${esc(p.nombre)}` : ""}${m.importancia === "alta" ? " · <strong>importante</strong>" : ""}</div>
-                <div class="correo-asunto">${esc(m.asunto)}</div>
-              </header>
-              ${m.sospechoso ? `<p class="recuadro-error">Amelia sospecha de este correo. Revíselo con cuidado.</p>` : ""}
-              ${m.resumen ? `<p class="correo-resumen">${esc(m.resumen)}</p>` : ""}
-              <details><summary>Ver el correo</summary><pre class="correo-texto">${esc(m.extracto)}</pre>${m.adjuntos.length ? `<p class="ficha-meta">Adjuntos: ${m.adjuntos.map((a) => esc(a.nombre)).join(" · ")}</p>` : ""}</details>`
-            : `<header class="correo-cabecera"><div class="correo-asunto">Borrador nuevo (${esc(nombreCuenta(propuestas[0].cuenta))})</div></header>`
-        }
+      if (!m) {
+        return `<article class="correo"><header class="correo-cabecera"><div class="correo-asunto">Borrador nuevo (${esc(nombreCuenta(propuestas[0].cuenta))})</div></header><ul class="propuestas">${propuestas.map(filaPropuesta).join("")}</ul></article>`;
+      }
+      const lugar = { archivado: "archivado", carpeta: "en su carpeta" }[m.ubicacion];
+      return `<article class="correo ${m.sospechoso ? "sospechoso" : ""} ${m.leido ? "" : "no-leido"}" style="--color-proyecto:${p?.color || "#7A6A55"}">
+        <header class="correo-cabecera">
+          <label class="elegir-correo-caja" title="Seleccionar este correo"><input type="checkbox" class="elegir-correo" value="${esc(m.ref)}" aria-label="Seleccionar: ${esc(m.asunto)}"></label>
+          <div>
+            <div><strong>${esc(m.de.nombre || m.de.direccion)}</strong> <small>&lt;${esc(m.de.direccion)}&gt;</small></div>
+            <div class="ficha-meta">${esc(nombreCuenta(m.cuenta))} · ${fecha(m.fecha)}${p ? ` · ${esc(p.nombre)}` : ""}${m.importancia === "alta" ? " · <strong>importante</strong>" : ""}${lugar ? ` · ${lugar}` : ""}${m.leido ? "" : " · sin leer"}</div>
+            <div class="correo-asunto">${esc(m.asunto)}</div>
+          </div>
+        </header>
+        ${m.sospechoso ? `<p class="recuadro-error">Amelia sospecha de este correo. Revíselo con cuidado.</p>` : ""}
+        ${m.resumen ? `<p class="correo-resumen">${esc(m.resumen)}</p>` : ""}
+        <details><summary>Ver el correo</summary><pre class="correo-texto">${esc(m.extracto)}</pre>${m.adjuntos.length ? `<p class="ficha-meta">Adjuntos: ${m.adjuntos.map((a) => esc(a.nombre)).join(" · ")}</p>` : ""}</details>
         ${propuestas?.length ? `<ul class="propuestas">${propuestas.map(filaPropuesta).join("")}</ul>` : ""}
+        <form class="orden-correo" data-ref="${esc(m.ref)}">
+          <input type="text" name="texto" maxlength="2000" placeholder="¿Qué hago con este correo? Ej.: «respóndele que el jueves me va bien»" aria-label="Orden para Amelia sobre este correo">
+          <button class="boton" type="submit">A Amelia</button>
+        </form>
       </article>`;
     };
 
@@ -354,19 +362,99 @@
         <div>
           <p class="rotulo">Secretaría · Amelia</p>
           <h2 id="carpeta-titulo">Bandeja del correo</h2>
-          <p class="funcion">Nada se toca hasta que usted lo aprueba. Grossmart nunca envía ni borra correos: los borradores quedan en su carpeta de Borradores para que los revise y los envíe usted.</p>
+          <p class="funcion">Lo que propone Amelia no se hace hasta que usted lo aprueba. Lo que usted ordena con los botones se hace al momento. Grossmart nunca envía correos ni los borra definitivamente: la papelera se puede recuperar durante 30 días.</p>
         </div>
       </header>
-      ${grupos.length ? grupos.map(([ref, lista]) => tarjeta(mensajes.get(ref), lista)).join("") : `<p class="vacio">No hay propuestas pendientes.</p>`}
-      ${grupos.length ? `<div class="acciones barra-aprobar"><button class="boton" id="descartar-correo" type="button">Descartar las marcadas</button><button class="boton boton-principal" id="aprobar-correo" type="button">Aprobar las marcadas</button></div>` : ""}
-      ${recientes.length ? `<section class="bloque" style="margin-top:26px"><h3>Correo reciente</h3>${recientes.map((m) => tarjeta(m, (porRef.get(m.ref) || []).filter((p) => p.estado === "hecha"))).join("")}</section>` : ""}`,
+
+      <form class="orden-general formulario-encargo" id="orden-general">
+        <label class="encargo-rotulo" for="orden-texto">Dígale a Amelia qué hacer</label>
+        <textarea id="orden-texto" name="texto" maxlength="5000" placeholder="Por ejemplo: «manda a la papelera los correos que no sean importantes para mí» o «prepara respuestas a todos los de Barnabeat»"></textarea>
+        <div class="fila-campos" style="justify-content:space-between;margin:8px 0 0">
+          <span class="ficha-meta" id="alcance-orden">Se aplicará a todo el correo de los últimos 7 días.</span>
+          <button class="boton boton-principal" type="submit">Encargar a Amelia</button>
+        </div>
+      </form>
+
+      <div class="barra-seleccion" id="barra-seleccion" hidden>
+        <span id="cuenta-seleccion"></span>
+        <button class="boton" type="button" data-directa="leido">Marcar como leídos</button>
+        <button class="boton" type="button" data-directa="archivar">Archivar</button>
+        <button class="boton boton-rojo" type="button" data-directa="papelera">A la papelera</button>
+        <button class="boton boton-discreto" type="button" id="quitar-seleccion">Quitar selección</button>
+      </div>
+
+      ${grupos.length ? `<section class="bloque"><h3>Propuestas de Amelia</h3>${grupos.map(([ref, lista]) => tarjeta(mensajes.get(ref), lista)).join("")}
+        <div class="acciones barra-aprobar"><button class="boton" id="descartar-correo" type="button">Descartar las marcadas</button><button class="boton boton-principal" id="aprobar-correo" type="button">Aprobar las marcadas</button></div></section>` : ""}
+      ${recientes.length ? `<section class="bloque" style="margin-top:22px"><h3 class="titulo-con-boton">Correo reciente <label class="ficha-meta" style="text-transform:none;letter-spacing:0"><input type="checkbox" id="elegir-todos"> seleccionar todos</label></h3>${recientes.map((m) => tarjeta(m, (porRef.get(m.ref) || []).filter((p) => p.estado === "hecha"))).join("")}</section>` : ""}
+      ${!grupos.length && !recientes.length ? `<p class="vacio">Todavía no hay correo leído. Pulse «Revisar el correo ahora» en la pestaña Correo.</p>` : ""}`,
       {},
     );
 
+    // Selección de correos y órdenes directas.
+    const elegidos = () => [...carpeta.querySelectorAll(".elegir-correo:checked")].map((c) => c.value);
+    const pintarSeleccion = () => {
+      const n = elegidos().length;
+      carpeta.querySelector("#barra-seleccion").hidden = n === 0;
+      carpeta.querySelector("#cuenta-seleccion").textContent = `${n} correo${n === 1 ? "" : "s"} seleccionado${n === 1 ? "" : "s"}:`;
+      carpeta.querySelector("#alcance-orden").textContent = n ? `Se aplicará solo a los ${n} correos seleccionados.` : "Se aplicará a todo el correo de los últimos 7 días.";
+    };
+    carpeta.addEventListener("change", (ev) => {
+      if (ev.target.id === "elegir-todos") {
+        for (const c of carpeta.querySelectorAll(".elegir-correo")) c.checked = ev.target.checked;
+      }
+      if (ev.target.matches(".elegir-correo, #elegir-todos")) pintarSeleccion();
+    });
+    carpeta.querySelector("#quitar-seleccion").addEventListener("click", () => {
+      for (const c of carpeta.querySelectorAll(".elegir-correo, #elegir-todos")) c.checked = false;
+      pintarSeleccion();
+    });
+    for (const b of carpeta.querySelectorAll("[data-directa]")) {
+      b.addEventListener("click", async () => {
+        const refs = elegidos();
+        const nombre = { leido: "marcar como leídos", archivar: "archivar", papelera: "mandar a la papelera" }[b.dataset.directa];
+        if (!confirm(`¿${nombre[0].toUpperCase() + nombre.slice(1)} ${refs.length} correo${refs.length === 1 ? "" : "s"}?${b.dataset.directa === "papelera" ? "\n\nSe podrán recuperar desde la papelera durante 30 días." : ""}`)) return;
+        b.disabled = true;
+        try {
+          const r = await api("/api/correo/accion", { refs, accion: b.dataset.directa });
+          aviso(r.errores.length ? `${r.hechas} hechos · ${r.errores.length} con error: ${r.errores[0].error}` : `Hecho: ${r.hechas} correo${r.hechas === 1 ? "" : "s"}.`, r.errores.length > 0);
+        } catch (e) {
+          aviso(e.message, true);
+        }
+        abrirBandeja();
+      });
+    }
+
+    // Órdenes con palabras: a Amelia (propone y usted confirma).
+    const encargar = async (refs, texto, boton) => {
+      if (!texto.trim()) return aviso("Escriba qué quiere que haga Amelia.", true);
+      boton.disabled = true;
+      try {
+        const t = await api("/api/correo/instruir", { refs, texto });
+        aviso("Amelia se pone con ello. Sus propuestas aparecerán aquí para que las confirme.");
+        abrirTarea(t.id);
+      } catch (e) {
+        aviso(e.message, true);
+        boton.disabled = false;
+      }
+    };
+    carpeta.querySelector("#orden-general").addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      encargar(elegidos(), ev.target.texto.value, ev.target.querySelector("[type=submit]"));
+    });
+    carpeta.addEventListener("submit", (ev) => {
+      const f = ev.target.closest(".orden-correo");
+      if (!f) return;
+      ev.preventDefault();
+      encargar([f.dataset.ref], f.texto.value, f.querySelector("[type=submit]"));
+    });
+
+    // Aprobar o descartar las propuestas de Amelia.
     const marcadas = () => [...carpeta.querySelectorAll(".elegir:checked")].map((c) => c.value);
     carpeta.querySelector("#aprobar-correo")?.addEventListener("click", async (ev) => {
       const ids = marcadas();
       if (!ids.length) return aviso("No hay nada marcado.", true);
+      const papelera = carpeta.querySelectorAll(".propuesta-papelera .elegir:checked").length;
+      if (papelera && !confirm(`Entre lo aprobado hay ${papelera} correo${papelera === 1 ? "" : "s"} que irán a la papelera (recuperables 30 días). ¿Seguir?`)) return;
       const ediciones = {};
       for (const b of carpeta.querySelectorAll(".borrador")) {
         if (!ids.includes(b.dataset.id)) continue;

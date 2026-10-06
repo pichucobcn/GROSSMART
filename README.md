@@ -87,9 +87,14 @@ Todo está en **`config/oficina.config.mjs`**: proyectos, departamentos, agentes
 
 ## Correo (Secretaría)
 
-Amelia, de Secretaría, lleva el correo: lo lee **a las 9:00 y a las 15:00 (hora de Barcelona)** y cuando se le pide, lo ordena por proyecto, avisa de lo importante y de lo sospechoso, y propone acciones y borradores. **Nada se toca hasta que Grossman lo aprueba** en la pestaña *Correo*. Grossmart **no puede enviar ni borrar** correos: no tiene código para ello. Los borradores quedan en la carpeta de Borradores para revisarlos y enviarlos uno mismo.
+Amelia, de Secretaría, lleva el correo: lo lee **a las 9:00 y a las 15:00 (hora de Barcelona)** y cuando se le pide, lo ordena por proyecto, avisa de lo importante y de lo sospechoso, y propone acciones y borradores. **Nada de lo que propone se hace hasta que Grossman lo aprueba** en la pestaña *Correo*. Grossmart **no puede enviar ni borrar definitivamente** correos: no tiene código para ello. «Borrar» es mandar a la papelera, que Gmail y Outlook guardan 30 días. Los borradores quedan en la carpeta de Borradores para revisarlos y enviarlos uno mismo.
 
-- Acciones posibles, siempre con visto bueno: etiquetar (Gmail: etiqueta «Grossmart/…»; Hotmail: carpeta), marcar como leído, archivar (sale de la bandeja, no se borra) y guardar borrador.
+En la bandeja, Grossman además puede:
+- **Seleccionar varios correos** y marcarlos como leídos, archivarlos o mandarlos a la papelera. Son órdenes suyas, así que se hacen al momento (con confirmación).
+- **Decir qué hacer con un correo**, con sus palabras, en la casilla de cada uno («respóndele que el jueves me va bien», «bórralo»).
+- **Dar una orden general** («manda a la papelera lo que no sea importante para mí»), para los seleccionados o para todo el correo de los últimos 7 días. Amelia decide correo a correo y Grossman confirma.
+
+- Acciones posibles: etiquetar (Gmail: etiqueta «Grossmart/…»; Hotmail: carpeta), marcar como leído, archivar (sale de la bandeja, no se borra), mandar a la papelera (recuperable 30 días) y guardar borrador.
 - Adjuntos: archivos subidos a un proyecto (en su archivo, «Archivos del proyecto») o adjuntos de correos recibidos. Como mucho 20 MB por borrador.
 - Encargos concretos: en el expediente de Amelia («prepara un borrador para gestor@… con la factura de la luz»). Puede escribir solo a las personas del hilo o a las direcciones que Grossman escribe en su encargo.
 
@@ -139,7 +144,7 @@ Grossmart recibe órdenes y las convierte en trabajo de agentes, así que está 
 **El correo**
 - Amelia **no tiene ninguna herramienta**: no navega, no lee archivos y no puede enviar nada. Los correos le llegan como datos entre marcas aleatorias que un correo no puede imitar, con la instrucción de no obedecer nunca lo que digan.
 - Sus propuestas pasan por reglas fijas antes de guardarse: solo acciones permitidas, etiquetas saneadas, borradores solo a personas del hilo o a direcciones escritas por Grossman, adjuntos solo existentes y hasta 20 MB. Lo que no cumple se descarta y se explica.
-- Nada se ejecuta sin la aprobación de Grossman. No existe código para enviar ni para borrar.
+- Nada de lo que propone Amelia se ejecuta sin la aprobación de Grossman. Las órdenes directas (botones) son de Grossman y se confirman antes. No existe código para enviar ni para borrar definitivamente: «borrar» mueve a la papelera.
 - Contraseñas y tokens del correo, solo en las variables de Railway. El token de Hotmail se guarda cifrado.
 - El texto de los correos se muestra siempre como texto, nunca como página (el HTML de un correo no se ejecuta).
 

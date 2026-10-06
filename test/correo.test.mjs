@@ -28,6 +28,9 @@ function buzonFalso(mensajes) {
     async archivar(uid) {
       llamadas.push(["archivar", uid]);
     },
+    async aPapelera(uid) {
+      llamadas.push(["papelera", uid]);
+    },
     async descargarAdjunto(uid, parte) {
       llamadas.push(["descargar", uid, parte]);
       return Buffer.from("PDF-FACTURA");
@@ -260,4 +263,45 @@ test("archivos: nombres seguros y tipos admitidos", () => {
   assert.equal(a.guardar("isla", "rider.pdf", Buffer.from("y")).nombre, "rider (2).pdf");
   assert.throws(() => a.leer("isla", "../../agentes.json"), /No existe/);
   assert.throws(() => a.dir("../x"), /no válido/);
+});
+
+test("órdenes directas de Grossman: varios correos a la papelera al momento", async () => {
+  const { correo, almacen, buzon } = montar({
+    mensajes: [mensaje(1, "promo@tienda.com", "Ofertas", "Rebajas"), mensaje(2, "news@revista.com", "Boletín", "Noticias"), mensaje(3, "ana@barnabeat.com", "Rider", "¿Me lo pasas?")],
+    responder: () => json({ resumen: "ok", mensajes: [] }),
+  });
+  const t = correo.revisar();
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  const r = await correo.accionDirecta({ refs: ["gmail-7-1", "gmail-7-2", "inventada"], accion: "papelera" });
+  assert.equal(r.hechas, 2, "la ref inventada se ignora");
+  assert.deepEqual(buzon.llamadas, [["papelera", 1], ["papelera", 2]]);
+  const visibles = correo.resumen().mensajes.map((m) => m.ref);
+  assert.deepEqual(visibles, ["gmail-7-3"], "lo de la papelera ya no aparece");
+  await assert.rejects(() => correo.accionDirecta({ refs: ["gmail-7-3"], accion: "borrar-definitivo" }), /no permitida/);
+  await assert.rejects(() => correo.accionDirecta({ refs: ["gmail-7-1"], accion: "papelera" }), /No hay correos/, "ya estaba en la papelera");
+});
+
+test("una orden con palabras sobre correos concretos: Amelia propone solo para esos", async () => {
+  const { correo, almacen, recibidos, buzon } = montar({
+    mensajes: [mensaje(1, "promo@tienda.com", "Ofertas", "Rebajas"), mensaje(2, "ana@barnabeat.com", "Rider", "¿Me lo pasas?")],
+    responder: ({ prompt }) =>
+      prompt.includes("ENCARGO DE GROSSMAN")
+        ? json({ resumen: "Hecho.", mensajes: [{ ref: "gmail-7-1", acciones: [{ tipo: "papelera" }, { tipo: "etiquetar", etiqueta: "Publicidad" }] }, { ref: "gmail-7-2", acciones: [{ tipo: "papelera" }] }] })
+        : json({ resumen: "ok", mensajes: [] }),
+  });
+  const r0 = correo.revisar();
+  await esperar(() => almacen.tarea(r0.id).estado === "terminada");
+  const t = correo.instruir({ refs: ["gmail-7-1"], texto: "Borra este, que no me interesa" });
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  const prompt = recibidos.at(-1).prompt;
+  assert.match(prompt, /Borra este, que no me interesa/);
+  assert.match(prompt, /ref=gmail-7-1 /);
+  assert.doesNotMatch(prompt, /ref=gmail-7-2 /, "solo el correo señalado");
+  const props = correo.resumen().propuestas;
+  assert.deepEqual(props.map((p) => `${p.tipo}:${p.ref}`).sort(), ["etiquetar:gmail-7-1", "papelera:gmail-7-1"], "nada sobre correos no señalados");
+  assert.deepEqual(buzon.llamadas, [], "propone, no ejecuta");
+  const r = await correo.aprobar({ ids: props.map((p) => p.id) });
+  assert.equal(r.hechas, 1);
+  assert.deepEqual(buzon.llamadas, [["papelera", 1]], "etiquetar sobra si va a la papelera");
+  assert.equal(correo.resumen().propuestas.find((p) => p.tipo === "etiquetar").estado, "descartada");
 });

@@ -1,5 +1,9 @@
 // Correspondencia: el correo de Grossman, llevado por Secretaría.
 //
+// Grossman también puede dar órdenes directas (marcar, archivar, mandar a la
+// papelera varios a la vez: se hacen al momento, son suyas) o pedirle cosas a
+// Amelia con sus palabras sobre uno o varios correos (ella propone y él confirma).
+//
 //   1. Grossmart lee los correos nuevos (por la mañana, por la tarde o cuando
 //      Grossman lo pide).
 //   2. Secretaría (un agente SIN herramientas: no puede navegar ni tocar nada)
@@ -106,7 +110,7 @@ export class Correspondencia {
       ultimaRevision: this.estado.ultimaRevision || null,
       proximaRevision: this.#proxima(),
       mensajes: this.estado.mensajes
-        .filter((m) => refsConPropuesta.has(m.ref) || Date.now() - Date.parse(m.leidoEn || m.fecha) < 3 * 86_400_000)
+        .filter((m) => m.ubicacion !== "papelera" && (refsConPropuesta.has(m.ref) || Date.now() - Date.parse(m.leidoEn || m.fecha) < 7 * 86_400_000))
         .slice(-150)
         .map(({ texto, ...m }) => ({ ...m, extracto: texto.slice(0, 600) })), // eslint-disable-line no-unused-vars
       propuestas: this.estado.propuestas.slice(-MAX_PROPUESTAS),
@@ -145,9 +149,12 @@ export class Correspondencia {
       if (!nuevos.length) {
         return { saltar: `# Revisión del correo\n\nNo ha llegado correo nuevo desde la última revisión.${this.#erroresCuentas()}` };
       }
+    } else if (t.correo.foco) {
+      // Grossman señaló correos concretos: solo esos (los que sigan en el archivo).
+      t.correo.refs = t.correo.refs.filter((r) => this.#mensaje(r));
     } else {
       // Encargo de Grossman: el correo nuevo y los últimos recibidos, como contexto.
-      const recientes = this.estado.mensajes.slice(-30).map((m) => m.ref);
+      const recientes = this.#visibles().slice(-30).map((m) => m.ref);
       t.correo.refs = [...new Set([...recientes, ...nuevos])].slice(-40);
     }
     this.#guardar();
@@ -231,7 +238,7 @@ export class Correspondencia {
           `Asunto: ${limpiar(m.asunto)}`,
           m.adjuntos.length ? `Adjuntos: ${limpiar(m.adjuntos.map((a) => `«${a.nombre}» (${kb(a.tamano)})`).join(", "))}` : null,
           "---",
-          limpiar(t.correo?.revision ? m.texto : m.texto.slice(0, 1500)),
+          limpiar(t.correo?.revision || (t.correo?.foco && mensajes.length <= 25) ? m.texto : m.texto.slice(0, 1500)),
           `<<<FIN ${marca}>>>`,
         ]
           .filter((x) => x !== null)
@@ -274,6 +281,7 @@ export class Correspondencia {
               { tipo: "etiquetar", etiqueta: "Pichuco" },
               { tipo: "leido" },
               { tipo: "archivar" },
+              { tipo: "papelera" },
               { tipo: "borrador", para: ["direccion@de.quien.escribio"], asunto: "Re: …", cuerpo: "texto del borrador, firmado como Grossman", adjuntos: [{ origen: "correo", ref: "ref de un correo", nombre: "factura.pdf" }, { origen: "proyecto", proyecto: "pichuco", nombre: "dossier.pdf" }] },
             ],
           },
@@ -287,7 +295,9 @@ export class Correspondencia {
       "- «borrador» solo si hace falta responder. Va a quien escribió (o a los del hilo). En el tono de Grossman, breve y claro, en el idioma del correo.",
       "- Los adjuntos solo pueden ser los de la lista de archivos o los de algún correo de arriba, con su nombre exacto. No inventes archivos.",
       "- «borradores_nuevos» solo si el encargo de Grossman lo pide, y solo a direcciones que él escribió.",
-      "- No existe ni «enviar» ni «borrar»: no los propongas.",
+      "- «papelera» manda el correo a la papelera (se puede recuperar durante 30 días). Solo si Grossman lo pide o para spam, fraudes o publicidad evidente.",
+      "- Si Grossman te pide algo sobre unos correos concretos, propón exactamente eso para cada uno; si pide borrar «lo que no es importante», decide con criterio y en caso de duda, no lo borres.",
+      "- No existe «enviar» ni «borrar definitivamente»: no los propongas.",
       "- No uses herramientas.",
     ]
       .filter((x) => x !== "")
@@ -354,7 +364,7 @@ export class Correspondencia {
 
   #validar(a, m, permitidasPorGrossman) {
     const tipo = a?.tipo;
-    if (tipo === "leido" || tipo === "archivar") {
+    if (tipo === "leido" || tipo === "archivar" || tipo === "papelera") {
       return m ? { propuesta: { tipo } } : { motivo: `«${tipo}» sin correo` };
     }
     if (tipo === "etiquetar") {
@@ -432,6 +442,10 @@ export class Correspondencia {
       }
     }
 
+    return this.#ejecutar(elegidas);
+  }
+
+  async #ejecutar(elegidas) {
     this.ocupada = true;
     const buzones = new Map();
     const abrir = async (id) => {
@@ -443,21 +457,38 @@ export class Correspondencia {
       return buzones.get(id);
     };
     // Orden seguro: leer y borradores primero (necesitan el correo en la bandeja), mover al final.
-    const orden = { leido: 0, borrador: 1, etiquetar: 2, archivar: 3 };
+    const orden = { leido: 0, borrador: 1, etiquetar: 2, archivar: 3, papelera: 4 };
     elegidas.sort((a, b) => orden[a.tipo] - orden[b.tipo]);
+    const aLaPapelera = new Set(elegidas.filter((p) => p.tipo === "papelera").map((p) => p.ref));
     const movidos = new Set();
     try {
       for (const p of elegidas) {
         try {
-          const buzon = await abrir(p.cuenta);
           const m = p.ref ? this.#mensaje(p.ref) : null;
           if (p.ref && !m) throw new Error("Ese correo ya no está en el archivo de Grossmart.");
-          if (p.tipo === "leido") await buzon.marcarLeido(m.uid);
-          else if (p.tipo === "etiquetar") {
+          if (m && ["etiquetar", "archivar"].includes(p.tipo) && aLaPapelera.has(m.ref)) {
+            p.estado = "descartada";
+            p.nota = "No hacía falta: el correo va a la papelera.";
+            continue;
+          }
+          if (m?.ubicacion === "papelera") throw new Error("Ese correo ya está en la papelera.");
+          const buzon = await abrir(p.cuenta);
+          if (p.tipo === "leido") {
+            await buzon.marcarLeido(m.uid);
+            m.leido = true;
+          } else if (p.tipo === "etiquetar") {
             await buzon.etiquetar(m.uid, p.etiqueta);
-            if (!buzon.esGmail) movidos.add(m.ref);
+            if (!buzon.esGmail) {
+              movidos.add(m.ref);
+              m.ubicacion = "carpeta";
+            }
           } else if (p.tipo === "archivar") {
             if (!movidos.has(m.ref)) await buzon.archivar(m.uid);
+            m.ubicacion = movidos.has(m.ref) ? "carpeta" : "archivado";
+          } else if (p.tipo === "papelera") {
+            if (movidos.has(m.ref)) throw new Error("El correo ya se movió a una carpeta.");
+            await buzon.aPapelera(m.uid);
+            m.ubicacion = "papelera";
           } else if (p.tipo === "borrador") {
             const adjuntos = [];
             for (const a of p.adjuntos || []) {
@@ -492,7 +523,58 @@ export class Correspondencia {
       this.#guardar();
       this.oficina.avisarCambio();
     }
-    return { hechas: elegidas.filter((p) => p.estado === "hecha").length, errores: elegidas.filter((p) => p.estado === "error").map((p) => ({ id: p.id, error: p.error })) };
+    return {
+      hechas: elegidas.filter((p) => p.estado === "hecha").length,
+      errores: elegidas.filter((p) => p.estado === "error").map((p) => ({ id: p.id, ref: p.ref, error: p.error })),
+    };
+  }
+
+  // ── órdenes directas de Grossman (sin IA: se hacen al momento) ───────────
+  async accionDirecta({ refs, accion, etiqueta }) {
+    if (this.ocupada) throw new Error("Secretaría ya está aplicando otras acciones. Espere un momento.");
+    if (!["leido", "archivar", "papelera", "etiquetar"].includes(accion)) throw new Error("Acción no permitida.");
+    const lista = this.#refsValidas(refs, 200);
+    if (!lista.length) throw new Error("No hay correos seleccionados.");
+    const nuevas = [];
+    for (const m of lista) {
+      const r = this.#validar({ tipo: accion, etiqueta }, m, new Set());
+      if (!r.propuesta) throw new Error(r.motivo);
+      const p = { ...r.propuesta, ref: m.ref, cuenta: m.cuenta, origen: "grossman", id: `C-${String(++this.estado.contador).padStart(5, "0")}`, estado: "propuesta", creada: new Date().toISOString() };
+      this.estado.propuestas.push(p);
+      nuevas.push(p);
+    }
+    return this.#ejecutar(nuevas);
+  }
+
+  // ── encargos con palabras sobre correos concretos (Amelia propone) ───────
+  instruir({ refs, texto: entrada }) {
+    if (!this.activo()) throw new Error("No hay ninguna cuenta de correo configurada.");
+    const texto = typeof entrada === "string" ? entrada.trim().slice(0, 5000) : "";
+    if (!texto) throw new Error("Escriba qué quiere que haga Amelia.");
+    let lista = this.#refsValidas(refs, 100);
+    if (!lista.length) lista = this.#visibles().filter((m) => Date.now() - Date.parse(m.leidoEn || m.fecha) < 7 * 86_400_000).slice(-100);
+    if (!lista.length) throw new Error("No hay correos recientes sobre los que trabajar.");
+    const resumen = texto.replace(/\s+/g, " ");
+    return this.oficina.crearTarea({
+      tipo: "correo",
+      agente: this.#secretaria().id,
+      proyecto: this.oficina.config.PROYECTO_GENERAL.id,
+      titulo: `Correo: ${resumen.length > 70 ? `${resumen.slice(0, 69)}…` : resumen}`,
+      descripcion: texto,
+      prioridad: "alta",
+      origen: "manual",
+      estado: "asignada",
+      correo: { revision: false, foco: true, refs: lista.map((m) => m.ref) },
+    });
+  }
+
+  #refsValidas(refs, max) {
+    const lista = Array.isArray(refs) ? [...new Set(refs)].slice(0, max) : [];
+    return lista.map((r) => this.#mensaje(r)).filter((m) => m && m.ubicacion !== "papelera");
+  }
+
+  #visibles() {
+    return this.estado.mensajes.filter((m) => m.ubicacion !== "papelera");
   }
 
   // ── Hotmail ───────────────────────────────────────────────────────────────
@@ -608,6 +690,7 @@ function contar(lista) {
     n("etiquetar") && `${n("etiquetar")} etiquetas`,
     n("archivar") && `${n("archivar")} para archivar`,
     n("leido") && `${n("leido")} para marcar como leídos`,
+    n("papelera") && `${n("papelera")} a la papelera`,
   ]
     .filter(Boolean)
     .join(", ") || "nada que hacer";

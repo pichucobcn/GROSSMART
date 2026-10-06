@@ -1,9 +1,10 @@
 // Un buzón de correo, por IMAP. Es lo único de Grossmart que toca el correo.
 //
 // Lo que sabe hacer está cerrado a propósito: leer, etiquetar (Gmail) o mover
-// a una carpeta (Outlook), archivar, marcar como leído y GUARDAR BORRADORES.
-// No hay código para enviar ni para borrar: aunque alguien engañara a un
-// agente, Grossmart no tendría con qué hacerlo.
+// a una carpeta (Outlook), archivar, marcar como leído, mandar a la PAPELERA y
+// GUARDAR BORRADORES. No hay código para enviar ni para borrar definitivamente:
+// lo que va a la papelera se puede recuperar (Gmail y Outlook la vacían a los
+// 30 días). Aunque alguien engañara a un agente, Grossmart no podría más.
 
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
@@ -139,6 +140,13 @@ export class Buzon {
     return this.#enBandeja(() => this.cliente.messageMove(String(uid), archivo, { uid: true }));
   }
 
+  // A la papelera (recuperable). Nunca se usa EXPUNGE ni \Deleted.
+  async aPapelera(uid) {
+    const papelera = (await this.#especial("\\Trash")) || (await this.#porNombre(["[Gmail]/Trash", "[Gmail]/Papelera", "Deleted", "Deleted Items", "Elementos eliminados", "Trash", "Papelera"]));
+    if (!papelera) throw new Error("No se encuentra la carpeta Papelera de esta cuenta.");
+    return this.#enBandeja(() => this.cliente.messageMove(String(uid), papelera, { uid: true }));
+  }
+
   // ── borradores ────────────────────────────────────────────────────────────
   async descargarAdjunto(uid, parte) {
     return this.#enBandeja(async () => {
@@ -185,6 +193,15 @@ export class Buzon {
   async #especial(uso) {
     if (!this.carpetas) this.carpetas = await this.cliente.list();
     return this.carpetas.find((c) => c.specialUse === uso)?.path || null;
+  }
+
+  async #porNombre(nombres) {
+    if (!this.carpetas) this.carpetas = await this.cliente.list();
+    for (const n of nombres) {
+      const c = this.carpetas.find((x) => x.path.toLowerCase() === n.toLowerCase());
+      if (c) return c.path;
+    }
+    return null;
   }
 
   async #asegurarCarpeta(ruta) {

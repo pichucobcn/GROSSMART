@@ -1585,3 +1585,88 @@ input[type="text"] {
   letter-spacing: 0.04em;
   font-size: 0.66rem;
 }
+
+.correo .correo-cabecera {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.elegir-correo-caja {
+  padding-top: 3px;
+  cursor: pointer;
+}
+
+.elegir-correo,
+#elegir-todos {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--verde-biblioteca);
+}
+
+.correo.no-leido .correo-asunto {
+  font-weight: 700;
+}
+
+.orden-correo {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.orden-correo input {
+  flex: 1;
+  min-width: 0;
+}
+
+.orden-general textarea {
+  width: 100%;
+  min-height: 64px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--linea);
+  background: var(--papel-claro);
+  font-family: var(--letra-maquina);
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.barra-seleccion {
+  position: sticky;
+  top: -34px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0;
+  padding: 10px 12px;
+  background: var(--tinta);
+  color: var(--crema);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.barra-seleccion[hidden] {
+  display: none;
+}
+
+.barra-seleccion .boton {
+  background: var(--papel);
+  color: var(--tinta);
+}
+
+.barra-seleccion .boton-rojo {
+  background: var(--rojo-ladrillo);
+  color: var(--crema);
+}
+
+.barra-seleccion .boton-discreto {
+  background: transparent;
+  color: var(--crema);
+  border-color: rgba(242, 232, 213, 0.4);
+}
+
+.propuesta-papelera .casilla-propuesta {
+  color: var(--rojo-ladrillo);
+}
