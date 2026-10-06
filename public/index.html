@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>La Oficina</title>
+    <meta name="description" content="La Oficina de Grossman: una agencia de empleados de inteligencia artificial." />
+    <link rel="icon" href="sombrero.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@600;700;800&family=Special+Elite&display=swap"
+    />
+    <link rel="stylesheet" href="oficina.css" />
+  </head>
+  <body>
+    <header class="membrete">
+      <div class="membrete-titulo">
+        <h1>La Oficina</h1>
+        <p class="subtitulo">La mente de Grossman</p>
+        <p class="leyenda" id="leyenda"></p>
+      </div>
+      <div class="membrete-datos">
+        <p class="fecha" id="fecha"></p>
+        <p class="linea" id="linea"><span class="piloto"></span><span class="linea-texto">Conectando…</span></p>
+      </div>
+    </header>
+
+    <form class="encargo-general" id="encargo-general" autocomplete="off">
+      <label for="encargo-texto" class="encargo-rotulo">Encargo para Coordinación</label>
+      <textarea
+        id="encargo-texto"
+        name="texto"
+        rows="1"
+        required
+        placeholder="Escriba aquí lo que necesita: «Quiero organizar una campaña para Pichuco en noviembre.»"
+      ></textarea>
+      <div class="encargo-pie">
+        <select id="encargo-proyecto" name="proyecto" aria-label="Proyecto">
+          <option value="">Que Coordinación decida el proyecto</option>
+        </select>
+        <button type="submit" class="boton boton-principal">Entregar a Coordinación</button>
+      </div>
+    </form>
+
+    <main class="sala">
+      <section class="planta-marco" aria-label="Planta de la oficina">
+        <div class="planta-scroll">
+          <svg id="planta" role="img" aria-label="Planta de La Oficina vista desde arriba"></svg>
+        </div>
+        <p class="planta-nota">Pulse un escritorio para abrir el expediente del empleado, o un archivador para el del proyecto.</p>
+      </section>
+
+      <aside class="centro" aria-label="Centro de operaciones">
+        <div class="centro-cabecera">
+          <h2>Centro de operaciones</h2>
+          <nav class="pestanas" role="tablist">
+            <button role="tab" data-pestana="operaciones" aria-selected="true">Operaciones</button>
+            <button role="tab" data-pestana="proyectos" aria-selected="false">Proyectos</button>
+            <button role="tab" data-pestana="departamentos" aria-selected="false">Departamentos</button>
+          </nav>
+        </div>
+        <div class="centro-cuerpo" id="centro"></div>
+      </aside>
+    </main>
+
+    <div class="velo" id="velo" hidden>
+      <article class="carpeta" id="carpeta" role="dialog" aria-modal="true" aria-labelledby="carpeta-titulo">
+        <button class="carpeta-cerrar" id="carpeta-cerrar" aria-label="Cerrar expediente">×</button>
+        <div id="carpeta-contenido"></div>
+      </article>
+    </div>
+
+    <div class="aviso" id="aviso" role="status" aria-live="polite" hidden></div>
+
+    <script src="markdown.js"></script>
+    <script src="planta.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
