@@ -50,7 +50,7 @@ La Oficina puede vivir en un servidor que esté siempre encendido. Los agentes s
    - *Settings → Networking → Generate Domain*. Esa dirección (https) es tu oficina.
 3. Abre la dirección en el móvil, escribe la clave y añádela a la pantalla de inicio.
 
-Sin `OFICINA_CLAVE`, la oficina se niega a arrancar abierta a la red. La comprobación de salud está en `/salud`.
+La oficina se niega a arrancar en la nube sin una `OFICINA_CLAVE` de 12 caracteres o más. La comprobación de salud está en `/salud`.
 
 ## Cómo funciona
 
@@ -80,7 +80,43 @@ Todo está en **`config/oficina.config.mjs`**: proyectos, departamentos, agentes
 
 - **Nuevo proyecto:** añadir una entrada a `PROYECTOS`, o pulsar «Abrir expediente nuevo» en la pestaña *Proyectos* (se guarda en `datos/proyectos.json`). Aparece su archivador en la planta.
 - **Nuevo empleado:** añadir una entrada a `AGENTES` (y su departamento, si es nuevo). Aparece su escritorio y Coordinación ya puede asignarle trabajo.
-- **Permisos:** `EJECUTOR.autoAprobarPermisos: true` deja que los agentes usen sus herramientas (buscar en la web, escribir archivos en la carpeta del proyecto). Con `false` las peticiones se rechazan y trabajan solo con texto.
+- **Herramientas de los agentes:** `EJECUTOR.herramientas`. Por defecto solo `WebSearch` y `WebFetch`. Lo que no está en la lista no existe para ellos. Ver «Seguridad».
+
+## Seguridad
+
+La Oficina recibe órdenes y las convierte en trabajo de agentes, así que está pensada para que nadie más pueda usarla y para que un agente no pueda ser engañado.
+
+**Quién entra**
+- Desde tu ordenador (`localhost`) se entra sin clave. Desde cualquier otro sitio hace falta `OFICINA_CLAVE`. En la nube siempre, sin excepciones.
+- Abierta a la red, la oficina **se niega a arrancar** sin clave o con una de menos de 12 caracteres.
+- Sesión: cookie firmada (HMAC) con un secreto aleatorio del servidor (`datos/secreto-sesiones`). Es `HttpOnly`, `SameSite=Strict`, `Secure` con https, y caduca en 30 días. Cambiar la clave o borrar ese archivo cierra todas las sesiones. Botón «Salir» en el móvil.
+- Contra quien prueba claves: 5 fallos desde una dirección la bloquean 15 minutos; 30 fallos en total bloquean la puerta para todos durante 15 minutos. Cada intento queda en el registro.
+- Contra webs maliciosas abiertas en tu navegador: las escrituras solo se aceptan en JSON y desde el mismo origen (CSRF). En modo local se exige que la petición vaya dirigida a `localhost` (DNS rebinding). Un reenvío público sin firma de Tailscale pide clave.
+
+**Qué ve el navegador**
+- Política de contenido (CSP) estricta: solo se ejecutan los scripts de la propia oficina. Los documentos de los agentes se escapan antes de mostrarse.
+- Además: `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, HSTS en la nube y `noindex` para buscadores.
+
+**Qué pueden hacer los agentes**
+- Solo tienen las herramientas de `EJECUTOR.herramientas`, por defecto **buscar y leer en la web**. No pueden ejecutar comandos ni leer archivos del servidor: no es que se les pida que no lo hagan, es que no tienen con qué. Por eso una web maliciosa no puede conseguir que un agente robe la llave de Claude o instale nada.
+- No cargan ajustes personales ni conectores (`settingSources: []`). Un agente no puede escribirse permisos a sí mismo.
+- Si se amplían sus herramientas en un ordenador propio, la oficina solo concede lectura, búsqueda o edición dentro de la carpeta de su proyecto. `Bash` está siempre prohibido.
+- Los agentes no reciben los secretos de la oficina (`OFICINA_*`). Además, sus instrucciones les dicen que lo leído en webs o documentos es información, nunca órdenes.
+
+**El servidor**
+- El contenedor no trabaja como administrador: arranca, se adueña de `/datos` y pasa al usuario `node`. Si no puede, no arranca.
+- Entradas comprobadas: tamaños máximos, tipos, colores y fechas validados, rutas de archivos encerradas en `public/`, peticiones raras que no tumban el servidor.
+- Dependencias: una sola (el puente ACP de Claude Code), con la versión fijada y el `package-lock`. Se instalan sin scripts (`--ignore-scripts`). `npm audit`: 0 vulnerabilidades.
+- Pruebas de ataque automáticas en `test/seguridad.test.mjs` (`npm test`).
+
+**Lo que te toca a ti**
+1. Una clave larga e inventada (por ejemplo, cuatro palabras al azar), que no uses en otro sitio.
+2. La llave `CLAUDE_CODE_OAUTH_TOKEN` y la clave, solo en las variables de la plataforma. Nunca en el código, ni en un correo, ni en un chat.
+3. Verificación en dos pasos (2FA) en GitHub, en la plataforma del servidor y en tu cuenta de Claude.
+4. El repositorio, privado.
+5. Si sospechas que la llave se ha filtrado: genera otra con `claude setup-token`, cámbiala en la plataforma y cambia también `OFICINA_CLAVE`.
+
+**Lo que ninguna medida evita del todo:** un agente que lee la web puede encontrar textos escritos para engañarlo. Por eso no tiene herramientas peligrosas, no recibe secretos y sus resultados son siempre documentos que revisas tú. No los conectes a correo, pagos ni cuentas sin pensarlo antes.
 
 ## Memoria y archivo
 
@@ -104,7 +140,8 @@ server/index.mjs            servidor HTTP + avisos en vivo (SSE)
 server/oficina.mjs          Coordinación: plan, reparto, cola, prompts, memoria
 server/ejecutor.mjs         ejecutores: ACP (Claude Code) y ensayo
 server/acp.mjs              cliente del Agent Client Protocol
-server/acceso.mjs           la puerta: clave para entrar desde otro aparato
+server/acceso.mjs           la puerta: clave, sesiones firmadas y freno a intentos
+server/privilegios.mjs      deja de ser root antes de trabajar (contenedores)
 Dockerfile                  para instalarla en un servidor
 server/almacen.mjs          archivo en disco
 public/                     la planta (SVG) y los expedientes

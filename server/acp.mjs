@@ -3,11 +3,13 @@
 // puente de Claude Code hace de "agente".
 
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 const VERSION_PROTOCOLO = 1;
 
 export class SesionACP {
-  constructor({ comando, argumentos = [], entorno = {}, cwd, autoAprobar = true, alTexto, alEvento }) {
+  constructor({ comando, argumentos = [], entorno = {}, cwd, autoAprobar = true, herramientas, alTexto, alEvento }) {
+    this.herramientas = herramientas;
     this.comando = comando;
     this.argumentos = argumentos;
     this.entorno = entorno;
@@ -26,7 +28,7 @@ export class SesionACP {
   arrancar() {
     this.proceso = spawn(this.comando, this.argumentos, {
       cwd: this.cwd,
-      env: { ...process.env, ...this.entorno },
+      env: { ...entornoLimpio(), ...this.entorno },
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.proceso.stdout.setEncoding("utf8");
@@ -58,7 +60,22 @@ export class SesionACP {
 
   async abrir() {
     const init = await this.saludar();
-    const sesion = await this.#llamar("session/new", { cwd: this.cwd, mcpServers: [] });
+    const sesion = await this.#llamar("session/new", {
+      cwd: this.cwd,
+      mcpServers: [],
+      _meta: {
+        claudeCode: {
+          options: {
+            // Solo las herramientas de la lista; sin conectores ni ajustes
+            // personales de ~/.claude ni de la carpeta del proyecto (un agente
+            // no puede escribirse permisos a sí mismo).
+            ...(Array.isArray(this.herramientas) ? { tools: this.herramientas } : {}),
+            settingSources: [],
+            disallowedTools: ["Bash", "BashOutput", "KillShell", "NotebookEdit", "Task"],
+          },
+        },
+      },
+    });
     this.sessionId = sesion.sessionId;
     return init;
   }
@@ -136,10 +153,11 @@ export class SesionACP {
     if (m.id != null) {
       if (m.method === "session/request_permission") {
         const opciones = m.params?.options || [];
-        const permitir = opciones.find((o) => o.kind === "allow_once") || opciones.find((o) => o.kind?.startsWith("allow"));
-        const rechazar = opciones.find((o) => o.kind?.startsWith("reject"));
-        const elegida = this.autoAprobar ? permitir : rechazar;
-        this.alEvento({ tipo: "permiso", titulo: m.params?.toolCall?.title || "herramienta", concedido: elegida === permitir });
+        const permitir = opciones.find((o) => o.kind === "allow_once");
+        const rechazar = opciones.find((o) => o.kind === "reject_once") || opciones.find((o) => o.kind?.startsWith("reject"));
+        const concedido = this.autoAprobar && permisoSeguro(m.params?.toolCall, this.cwd) && Boolean(permitir);
+        const elegida = concedido ? permitir : rechazar;
+        this.alEvento({ tipo: "permiso", titulo: m.params?.toolCall?.title || "herramienta", concedido });
         this.#enviar({
           jsonrpc: "2.0",
           id: m.id,
@@ -150,4 +168,26 @@ export class SesionACP {
       this.#enviar({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: `La Oficina no implementa ${m.method}` } });
     }
   }
+}
+
+// Solo lectura, búsqueda o edición, y siempre dentro de la carpeta del
+// proyecto. Ejecutar, borrar, mover o cualquier cosa desconocida: no.
+const TIPOS_PERMITIDOS = new Set(["read", "search", "fetch", "edit", "think"]);
+
+export function permisoSeguro(toolCall, cwd) {
+  if (!toolCall || !TIPOS_PERMITIDOS.has(toolCall.kind)) return false;
+  const base = path.resolve(cwd) + path.sep;
+  for (const lugar of toolCall.locations || []) {
+    const ruta = path.resolve(cwd, String(lugar?.path || ""));
+    if (!(ruta + path.sep).startsWith(base)) return false;
+  }
+  return true;
+}
+
+// El puente ACP (y Claude Code) heredan el entorno, salvo los secretos de la
+// oficina. La llave de Claude (CLAUDE_CODE_OAUTH_TOKEN) sí la necesitan.
+function entornoLimpio() {
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) if (k.startsWith("OFICINA_")) delete env[k];
+  return env;
 }

@@ -249,9 +249,17 @@ export const EJECUTOR = {
   concurrencia: 3,
   // Minutos antes de dar una tarea por colgada.
   tiempoMaximoMinutos: 25,
-  // Claude Code pide permiso para usar herramientas (buscar en la web,
-  // escribir archivos…). true = la oficina lo concede; cada proyecto trabaja
-  // en su propia carpeta (datos/proyectos/<id>/archivo).
+  // Herramientas de Claude Code que tienen los agentes. Lo que no está en la
+  // lista no existe para ellos (no se les puede convencer de usarlo).
+  //   Por defecto: solo buscar y leer en la web.
+  //   En un ordenador propio se puede añadir "Read", "Write", "Edit", "Glob"
+  //   y "Grep" para que trabajen con archivos en la carpeta del proyecto.
+  //   "Bash" (ejecutar comandos) no se recomienda nunca: con él, una web
+  //   maliciosa podría intentar que un agente ejecute órdenes en la máquina.
+  herramientas: ["WebSearch", "WebFetch"],
+  // Cuando Claude Code pide permiso para una herramienta de la lista, la
+  // oficina lo concede solo si es de lectura, búsqueda o edición dentro de la
+  // carpeta del proyecto (datos/proyectos/<id>/archivo). Nunca ejecutar.
   autoAprobarPermisos: true,
 };
 

@@ -110,6 +110,12 @@ textarea {
   margin: 0 0 4px;
 }
 
+.salir {
+  margin-top: 6px;
+  color: rgba(242, 232, 213, 0.75);
+  border-color: rgba(242, 232, 213, 0.35);
+}
+
 .fecha {
   font-style: italic;
 }

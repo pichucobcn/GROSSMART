@@ -39,6 +39,7 @@ function ejecutorACP(config) {
         entorno: config.entorno,
         cwd,
         autoAprobar: config.autoAprobarPermisos,
+        herramientas: config.herramientas,
         alTexto: (t) => {
           texto += t;
           alTexto?.(t);

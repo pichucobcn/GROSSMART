@@ -1,0 +1,11 @@
+# Avisos de actualizaciones de seguridad (llegan como pull requests para revisar).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

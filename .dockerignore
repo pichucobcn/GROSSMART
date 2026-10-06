@@ -1,4 +1,6 @@
 node_modules
 datos
 test
+.git
+.env*
 *.md

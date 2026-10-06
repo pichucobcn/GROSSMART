@@ -733,6 +733,8 @@
   }
 
   async function iniciar() {
+    // Fuera del propio ordenador, la sesión se puede cerrar (móvil prestado…).
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(location.hostname)) $("#salir").hidden = false;
     $("#fecha").textContent = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     await recargarConfig();
 
