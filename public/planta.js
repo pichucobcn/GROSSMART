@@ -492,10 +492,10 @@
     s += `
       <g filter="url(#sombra)">
         <rect x="${sx - 30}" y="170" width="60" height="210" rx="10" fill="#5a2a22"/>
-        <rect x="${sx - 30}" y="170" width="18" height="210" rx="8" fill="#4a211b"/>
+        <rect x="${sx + 12}" y="170" width="18" height="210" rx="8" fill="#4a211b"/>
         <rect x="${sx - 30}" y="170" width="60" height="16" rx="8" fill="#4a211b"/>
         <rect x="${sx - 30}" y="364" width="60" height="16" rx="8" fill="#4a211b"/>
-        ${[205, 245, 285, 325].map((yy) => `<circle cx="${sx + 6}" cy="${yy}" r="1.6" fill="#2d1411"/>`).join("")}
+        ${[205, 245, 285, 325].map((yy) => `<circle cx="${sx - 6}" cy="${yy}" r="1.6" fill="#2d1411"/>`).join("")}
       </g>
       <g filter="url(#sombra-suave)">
         <circle cx="${sx - 70}" cy="275" r="24" fill="${P.nogal}"/>
@@ -517,6 +517,12 @@
           return `<rect x="${W - derecha + 14 + i * 7.2}" y="${muro + 5}" width="${ancho}" height="${17 + ((i * 5) % 4)}" fill="${colores[(i * 3) % colores.length]}"/>`;
         }).join("")}
       </g>`;
+    // Mesa de ajedrez (para los ratos libres) y aparador del café.
+    const ajedrez = { x: zonaX1 - 110, y: cy };
+    s += mesaAjedrez(ajedrez.x, ajedrez.y);
+    const cafeY = cy + 34;
+    s += aparadorCafe(W - muro - 22, cafeY);
+
     s += planta(muro + 40, H - muro - 40, 30);
     s += planta(W - muro - 42, muro + 64, 26);
     s += planta(cx + 330, cy - 120, 20);
@@ -527,10 +533,78 @@
     filaAbajo.forEach((a, i) => (s += puestoAgente(a, deps[a.departamento] || { nombre: a.departamento }, xs(filaAbajo.length)[i], H - 160, true)));
     s += puestoCoordinacion(coord, cx, cy + 6);
 
+    // Capa de los que se levantan a dar una vuelta (paseos.js).
+    s += `<g id="paseantes"></g>`;
+
     // Luz cálida de la sala.
     s += `<rect width="${W}" height="${H}" fill="url(#luz-sala)" pointer-events="none"/>`;
 
     svg.innerHTML = s;
+
+    // Geometría para los paseos: dónde se sienta cada uno, por dónde sale de
+    // su escritorio y a qué pasillo da. Los pasillos son horizontales (uno
+    // sobre la alfombra central, otro debajo) y se cruzan por carriles verticales.
+    const arriba = muro + 273;
+    const abajo = H - 285;
+    const sitios = [];
+    const salidaFila = (lista, yPersona, pasillo) =>
+      lista.forEach((a, i) => {
+        const x = xs(lista.length)[i];
+        const sx2 = x + (zonaX1 - zonaX0) / lista.length / 2;
+        sitios.push({ agente: a, silla: { x, y: yPersona, giro: yPersona > cy ? 180 : 0 }, salida: [{ x: sx2, y: yPersona }, { x: sx2, y: pasillo }], pasillo });
+      });
+    salidaFila(filaArriba, 160 - 66, arriba);
+    salidaFila(filaAbajo, H - 160 + 66, abajo);
+    sitios.push({ agente: coord, silla: { x: cx, y: cy + 6 - 78, giro: 0 }, salida: [{ x: cx + 175, y: cy + 6 - 78 }, { x: cx + 175, y: arriba }], pasillo: arriba });
+
+    const destinos = {
+      ajedrez: [
+        { carril: ajedrez.x - 48, punto: { x: ajedrez.x - 48, y: ajedrez.y }, giro: -90, accesorio: null },
+        { carril: ajedrez.x + 48, punto: { x: ajedrez.x + 48, y: ajedrez.y }, giro: 90, accesorio: null },
+      ],
+      cafe: [{ carril: zonaX1, via: [{ x: zonaX1, y: cafeY }], punto: { x: W - muro - 70, y: cafeY }, giro: -90, accesorio: "taza" }],
+      sofa: [215, 335].map((yy) => ({ carril: zonaX1, via: [{ x: zonaX1, y: yy }], punto: { x: sx - 4, y: yy }, giro: 90, accesorio: "periodico" })),
+      archivo: proyectos.map((_, i) => {
+        const col = Math.floor(i / porColumna);
+        const yy = 80 + (i % porColumna) * altoCajon + 33;
+        return { carril: 64 + col * 106 + 136, punto: { x: 64 + col * 106 + 136, y: yy }, giro: 90, accesorio: "carpeta" };
+      }),
+    };
+    geometria = { sitios, destinos, arriba, abajo };
+  }
+
+  function mesaAjedrez(x, y) {
+    let casillas = "";
+    for (let f = 0; f < 8; f++)
+      for (let c = 0; c < 8; c++)
+        if ((f + c) % 2) casillas += `<rect x="${x - 20 + c * 5}" y="${y - 20 + f * 5}" width="5" height="5" fill="#4A3024"/>`;
+    const piezas = [
+      [-17.5, -17.5, 1], [-7.5, -17.5, 1], [2.5, -12.5, 1], [12.5, -17.5, 1], [-12.5, -7.5, 1],
+      [-17.5, 12.5, 0], [-2.5, 17.5, 0], [7.5, 12.5, 0], [17.5, 17.5, 0], [12.5, 7.5, 0],
+    ]
+      .map(([dx, dy, n], i) => `<circle class="pieza${i === 4 ? " pieza-viva" : ""}" cx="${x + dx}" cy="${y + dy}" r="1.9" fill="${n ? "#211C18" : "#F7F0E1"}" stroke="${n ? "#000" : "#a89a80"}" stroke-width=".5"/>`)
+      .join("");
+    return `
+      <g class="mesa-ajedrez" filter="url(#sombra-suave)">
+        <circle cx="${x - 48}" cy="${y}" r="17" fill="#3b2a22"/><circle cx="${x - 48}" cy="${y}" r="13" fill="${P.cuero}"/>
+        <circle cx="${x + 48}" cy="${y}" r="17" fill="#3b2a22"/><circle cx="${x + 48}" cy="${y}" r="13" fill="${P.cuero}"/>
+        <circle cx="${x}" cy="${y}" r="31" fill="${P.madera}"/>
+        <circle cx="${x}" cy="${y}" r="28" fill="#6a4532"/>
+        <rect x="${x - 21}" y="${y - 21}" width="42" height="42" fill="#E7D8BC" stroke="${P.dorado}" stroke-width="1"/>
+        ${casillas}${piezas}
+      </g>`;
+  }
+
+  function aparadorCafe(x, y) {
+    return `
+      <g class="aparador-cafe" filter="url(#sombra)">
+        <rect x="${x - 34}" y="${y - 62}" width="34" height="124" rx="2" fill="${P.madera}"/>
+        <rect x="${x - 31}" y="${y - 59}" width="28" height="118" fill="#6a4532"/>
+        <rect x="${x - 28}" y="${y - 44}" width="22" height="26" rx="3" fill="#8a8178" stroke="#3a332e"/>
+        <circle cx="${x - 17}" cy="${y - 31}" r="6" fill="#2a2522"/>
+        <rect x="${x - 26}" y="${y - 12}" width="18" height="6" rx="2" fill="${P.dorado}"/>
+        ${[8, 22, 36].map((d) => `<circle cx="${x - 17}" cy="${y + d}" r="5" fill="#F7F0E1" stroke="#a89a80" stroke-width=".8"/><circle cx="${x - 17}" cy="${y + d}" r="2.6" fill="#5a3a22"/>`).join("")}
+      </g>`;
   }
 
   // ── lo que cambia con el trabajo ───────────────────────────────────────────
@@ -554,6 +628,8 @@
       const clase = trabajando ? "trabajando" : espera ? "esperando" : error ? "error" : "libre";
       g.classList.remove("libre", "trabajando", "esperando", "error");
       g.classList.add(clase);
+      // Con trabajo en la bandeja (a punto de empezar) nadie se levanta.
+      g.classList.toggle("con-bandeja", suyas.some((x) => x.estado === "asignada"));
 
       const t = g.querySelector("title");
       const nombre = t.textContent.split(" — ")[0];
@@ -609,5 +685,6 @@
     return n ? `<text x="20" y="-10" text-anchor="end" class="contador">${n}</text>` : "";
   }
 
-  window.Planta = { dibujar, actualizar, sombrero };
+  let geometria = null;
+  window.Planta = { dibujar, actualizar, sombrero, persona, geometria: () => geometria };
 })();

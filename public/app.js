@@ -686,6 +686,7 @@
   function pintarTodo() {
     const porId = Object.fromEntries(ESTADO.proyectos.map((p) => [p.id, p]));
     window.Planta.actualizar(ESTADO, porId);
+    window.Paseos?.actualizar();
     pintarCentro();
     vista?.refrescar?.();
 
@@ -725,6 +726,7 @@
     CONFIG = await api("/api/config");
     ESTADO.proyectos = CONFIG.proyectos;
     window.Planta.dibujar($("#planta"), CONFIG, CONFIG.proyectos);
+    window.Paseos?.iniciar($("#planta"));
     const sel = $("#encargo-proyecto");
     const actual = sel.value;
     sel.innerHTML = `<option value="">Que Coordinación decida el proyecto</option>` + CONFIG.proyectos.map((p) => `<option value="${p.id}">${esc(p.nombre)}</option>`).join("");
@@ -761,11 +763,18 @@
         boton.disabled = false;
       }
     });
-    // Ctrl/⌘ + Intro envía cualquier encargo.
+    // En el ordenador, Intro entrega el encargo (Mayús + Intro, salto de línea).
+    // En el móvil, Intro escribe un salto de línea y se envía con el botón.
+    // Ctrl/⌘ + Intro envía cualquier texto, en cualquier aparato.
+    const conTeclado = window.matchMedia("(hover: hover) and (pointer: fine)");
     document.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey) && ev.target.matches("textarea")) {
-        ev.preventDefault();
-        ev.target.form?.requestSubmit();
+      if (ev.key === "Enter" && !ev.isComposing && ev.target.matches("textarea")) {
+        const encargo = ev.target.matches("#encargo-texto, #form-agente textarea");
+        const directo = ev.ctrlKey || ev.metaKey;
+        if (directo || (encargo && conTeclado.matches && !ev.shiftKey && !ev.altKey)) {
+          ev.preventDefault();
+          if (ev.target.value.trim()) ev.target.form?.requestSubmit();
+        }
       }
       if (ev.key === "Escape" && vista) cerrarCarpeta();
       if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("svg [role=button], .carpeta-proyecto")) {

@@ -196,6 +196,21 @@ textarea {
   border-bottom-color: var(--rojo-ladrillo);
 }
 
+.atajo {
+  grid-column: 2 / -1;
+  margin: -4px 0 0;
+  font-family: var(--letra-maquina);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--tinta-tenue);
+}
+
+@media (hover: none), (pointer: coarse) {
+  .atajo {
+    display: none;
+  }
+}
+
 .encargo-pie {
   display: flex;
   gap: 10px;
@@ -461,6 +476,59 @@ input[type="text"] {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* ratos libres (paseos.js) */
+.agente.paseando .persona {
+  visibility: hidden;
+}
+
+.paseante {
+  cursor: pointer;
+}
+
+.paseante .brazo {
+  transform-box: fill-box;
+}
+
+.paseante.andando .brazo-izq {
+  animation: braceo 0.5s ease-in-out infinite alternate;
+}
+
+.paseante.andando .brazo-der {
+  animation: braceo 0.5s ease-in-out -0.25s infinite alternate;
+}
+
+.mesa-ajedrez .pieza {
+  transform-box: fill-box;
+}
+
+.mesa-ajedrez.partida .pieza-viva {
+  animation: jugada 14s ease-in-out infinite;
+}
+
+@keyframes braceo {
+  from {
+    transform: translateY(-3px);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes jugada {
+  0%,
+  40% {
+    transform: translate(0, 0);
+  }
+  46%,
+  85% {
+    transform: translate(5px, 10px);
+  }
+  91%,
+  100% {
+    transform: translate(0, 0);
   }
 }
 
