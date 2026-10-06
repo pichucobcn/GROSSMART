@@ -1,7 +1,7 @@
 {
-  "name": "La Oficina",
-  "short_name": "La Oficina",
-  "description": "La mente de Grossman: la agencia de empleados de IA.",
+  "name": "Grossmart",
+  "short_name": "Grossmart",
+  "description": "La mente de Grossman: la empresa de empleados de IA.",
   "lang": "es",
   "start_url": "/",
   "scope": "/",

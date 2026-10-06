@@ -1,4 +1,4 @@
-// La planta de La Oficina, vista estrictamente desde arriba.
+// La planta de Grossmart, vista estrictamente desde arriba.
 // Todo se dibuja a partir de la configuración: si se añade un agente o un
 // proyecto, aparece su escritorio o su archivador sin tocar este archivo.
 (function () {
@@ -427,6 +427,7 @@
         .etiqueta-archivo { font: 10px "Special Elite", "Courier New", monospace; letter-spacing: .06em; fill: #211C18; }
         .rotulo-bandeja { font: 7.5px "Special Elite", "Courier New", monospace; letter-spacing: .14em; fill: #E7D8BC; }
         .rotulo-suelo { font: 13px "Special Elite", "Courier New", monospace; letter-spacing: .32em; fill: #E7D8BC; opacity: .75; }
+        .rotulo-casa { font: 800 13px "Playfair Display", Georgia, serif; letter-spacing: .12em; fill: #D2B57A; }
         .contador { font: 700 11px "Playfair Display", Georgia, serif; fill: #F2E8D5; }
       </style>
 
@@ -448,8 +449,12 @@
     const py = H - 210;
     const pared = W - muro;
     s += `<rect x="${pared - 3}" y="${py}" width="${muro + 6}" height="90" fill="url(#parquet)"/>`;
-    s += `<rect x="${pared - 70}" y="${py + 14}" width="44" height="62" rx="3" fill="#7a2c22" opacity=".9"/>`;
-    s += `<rect x="${pared - 66}" y="${py + 18}" width="36" height="54" rx="2" fill="none" stroke="${P.dorado}" stroke-width=".8" opacity=".7"/>`;
+    // Felpudo con el nombre de la casa.
+    s += `<g filter="url(#sombra-suave)">
+      <rect x="${pared - 72}" y="${py - 4}" width="52" height="98" rx="3" fill="#6e241c"/>
+      <rect x="${pared - 67}" y="${py + 1}" width="42" height="88" rx="2" fill="none" stroke="${P.dorado}" stroke-width="1.2"/>
+      <text x="${pared - 46}" y="${py + 45}" text-anchor="middle" dominant-baseline="central" class="rotulo-casa" transform="rotate(-90 ${pared - 46} ${py + 45})" textLength="80" lengthAdjust="spacingAndGlyphs">GROSSMART</text>
+    </g>`;
     s += `<path d="M${pared - 90} ${py} A90 90 0 0 0 ${pared} ${py + 90}" fill="none" stroke="${P.tinta}" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>`;
     s += `<rect x="${pared - 90}" y="${py - 3}" width="90" height="6" fill="${P.nogal}" stroke="${P.tinta}" stroke-width=".8"/>`;
     s += `<circle cx="${pared - 82}" cy="${py + 6}" r="2.5" fill="${P.dorado}"/>`;
@@ -457,7 +462,7 @@
     // Alfombras persas: el centro de operaciones y la sala de espera.
     s += alfombra(cx - 280, cy - 165, 560, 330, ["#7d2a20", "#2f4639", "#a7472f"]);
     s += alfombra(W - derecha + 40, 150, 170, 250, ["#315447", "#5a2a22", "#862820"]);
-    s += `<text x="${cx}" y="${cy - 180}" text-anchor="middle" class="rotulo-suelo">CENTRO DE OPERACIONES</text>`;
+    s += `<text x="${cx}" y="${cy - 180}" text-anchor="middle" class="rotulo-suelo">GROSSMART · CENTRO DE OPERACIONES</text>`;
 
     // Archivo de proyectos (muro oeste).
     s += `<text x="58" y="${H / 2}" text-anchor="middle" class="rotulo-suelo" transform="rotate(-90 40 ${H / 2})">ARCHIVO DE PROYECTOS</text>`;

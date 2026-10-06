@@ -1,7 +1,7 @@
-// El archivo de la oficina. Todo se guarda en disco, en datos/:
+// El archivo de Grossmart. Todo se guarda en disco, en datos/:
 //
 //   datos/oficina.json                    contadores y encargos
-//   datos/proyectos.json                  proyectos abiertos desde la oficina
+//   datos/proyectos.json                  proyectos abiertos desde Grossmart
 //   datos/proyectos/<id>/tareas.json      tareas de ese proyecto
 //   datos/proyectos/<id>/memoria.json     contexto, decisiones, instrucciones, notas
 //   datos/proyectos/<id>/documentos/      resultados entregados (.md)

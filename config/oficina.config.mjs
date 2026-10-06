@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  LA OFICINA · configuración central
+//  Grossmart · configuración central
 //
-//  Todo lo que define la oficina vive aquí: proyectos, departamentos, agentes,
+//  Todo lo que define Grossmart vive aquí: proyectos, departamentos, agentes,
 //  estados, prioridades y el ejecutor. La lógica (server/) y la planta
 //  (public/) se construyen a partir de este archivo: para añadir un proyecto
 //  o un empleado basta con añadir una entrada y reiniciar el servidor.
@@ -21,7 +21,7 @@ export const PALETA = {
 };
 
 // ── PROYECTOS ────────────────────────────────────────────────────────────────
-// Los trabajos que entran a la oficina. Cada uno tiene su propio archivo
+// Los trabajos que entran a Grossmart. Cada uno tiene su propio archivo
 // (cajón en la planta) y su propia memoria, separada de los demás.
 // `palabrasClave` ayuda a Coordinación a reconocer el proyecto en un encargo.
 // También se pueden abrir proyectos nuevos desde la propia oficina

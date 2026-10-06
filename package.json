@@ -1,8 +1,8 @@
 {
-  "name": "la-oficina",
+  "name": "grossmart",
   "version": "0.1.0",
   "private": true,
-  "description": "La Oficina: la agencia de empleados de IA de Grossman.",
+  "description": "Grossmart: la empresa de Grossman, con empleados de IA.",
   "type": "module",
   "scripts": {
     "start": "node server/index.mjs",

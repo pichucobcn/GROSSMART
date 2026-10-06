@@ -1,6 +1,6 @@
-# LA OFICINA
+# Grossmart
 
-*La mente de Grossman.* Una oficina de mediados del siglo XX donde los empleados son agentes de inteligencia artificial. Grossman dice lo que necesita y la oficina se encarga del resto: entiende el encargo, decide a qué proyecto pertenece, lo reparte, lo ejecuta, guarda lo hecho y recuerda lo pendiente.
+*La mente de Grossman.* Grossmart es la empresa de Grossman: una oficina de mediados del siglo XX donde los empleados son agentes de inteligencia artificial. Grossman dice lo que necesita y Grossmart se encarga del resto: entiende el encargo, decide a qué proyecto pertenece, lo reparte, lo ejecuta, guarda lo hecho y recuerda lo pendiente.
 
 ```
 IDEA → ENCARGO → PLAN → TAREAS → EJECUCIÓN → RESULTADO → SEGUIMIENTO
@@ -8,10 +8,11 @@ IDEA → ENCARGO → PLAN → TAREAS → EJECUCIÓN → RESULTADO → SEGUIMIENT
 
 ## Puesta en marcha
 
-Requisitos: Node 20 o superior y **Claude Code con la sesión iniciada** en esta máquina (`claude`, y dentro `/login`). La oficina trabaja con la cuenta de Claude del usuario: sin claves de API ni servicios de pago aparte.
+Requisitos: Node 20 o superior y **Claude Code con la sesión iniciada** en esta máquina (`claude`, y dentro `/login`). Grossmart trabaja con la cuenta de Claude del usuario: sin claves de API ni servicios de pago aparte.
 
 ```bash
-cd oficina
+git clone https://github.com/pichucobcn/grossmart.git
+cd grossmart
 npm install      # instala el puente ACP de Claude Code
 npm start        # abre http://127.0.0.1:4321
 ```
@@ -21,14 +22,14 @@ Pruebas: `npm test`.
 
 ## Desde el móvil
 
-Los agentes trabajan en el ordenador, así que el móvil es un mando a distancia: **el ordenador tiene que estar encendido con la oficina abierta**.
+Los agentes trabajan en el ordenador, así que el móvil es un mando a distancia: **el ordenador tiene que estar encendido con Grossmart abierto**.
 
 **Opción A · Desde cualquier sitio, con Tailscale (recomendada).** Tailscale crea una red privada entre tus aparatos. Es gratis para uso personal.
 1. Instala Tailscale en el ordenador y en el móvil ([tailscale.com/download](https://tailscale.com/download)) y entra con la misma cuenta en los dos.
-2. En el ordenador, con la oficina abierta (`npm start`): `tailscale serve --bg 4321`
+2. En el ordenador, con Grossmart abierto (`npm start`): `tailscale serve --bg 4321`
 3. Tailscale muestra una dirección del tipo `https://tu-ordenador.tu-red.ts.net`. Ábrela en el móvil.
 
-Solo tus aparatos ven esa dirección. No uses `tailscale funnel`, que la publicaría en internet; aun así, la oficina pediría la clave a lo que llegue por ahí.
+Solo tus aparatos ven esa dirección. No uses `tailscale funnel`, que la publicaría en internet; aun así, Grossmart pediría la clave a lo que llegue por ahí.
 
 **Opción B · En casa, por wifi.**
 ```bash
@@ -36,21 +37,21 @@ OFICINA_CLAVE="una-clave-larga" npm run movil
 ```
 La consola muestra la dirección para el móvil (por ejemplo `http://192.168.1.20:4321`). La primera vez pide la clave; después la recuerda. Sin `OFICINA_CLAVE` no arranca en este modo.
 
-**Como app.** Con la oficina abierta en el móvil: en iPhone, Safari → Compartir → «Añadir a pantalla de inicio»; en Android, Chrome → menú → «Añadir a pantalla de inicio». Aparece el icono del sombrero y se abre a pantalla completa.
+**Como app.** Con Grossmart abierto en el móvil: en iPhone, Safari → Compartir → «Añadir a pantalla de inicio»; en Android, Chrome → menú → «Añadir a pantalla de inicio». Aparece el icono del sombrero y se abre a pantalla completa.
 
 ## En la nube (sin depender de tu ordenador)
 
-La Oficina puede vivir en un servidor que esté siempre encendido. Los agentes siguen usando **tu suscripción de Claude**: nada de API de pago. Solo se paga el servidor (unos 5 € al mes).
+Grossmart puede vivir en un servidor que esté siempre encendido. Los agentes siguen usando **tu suscripción de Claude**: nada de API de pago. Solo se paga el servidor (unos 5 € al mes).
 
 1. **La llave de tu suscripción.** En tu ordenador, con Claude Code instalado: `claude setup-token`. Inicia sesión en el navegador y copia el código que empieza por `sk-ant-oat…`. Es como una contraseña: no la compartas ni la subas al repositorio.
 2. **El servidor.** Cualquier servicio que ejecute un `Dockerfile` y tenga disco persistente. Ejemplo con [Railway](https://railway.com):
-   - *New Project → Deploy from GitHub repo* → este repositorio. En *Settings → Source*, carpeta raíz: `oficina`.
+   - *New Project → Deploy from GitHub repo* → `pichucobcn/grossmart`. Railway encuentra el `Dockerfile` solo.
    - *Variables*: `OFICINA_CLAVE` (la clave para entrar) y `CLAUDE_CODE_OAUTH_TOKEN` (la llave del paso 1).
    - *Volume*: añadir uno montado en `/datos`. Ahí se guardan encargos, tareas y memoria. Sin él, se pierden en cada actualización.
    - *Settings → Networking → Generate Domain*. Esa dirección (https) es tu oficina.
 3. Abre la dirección en el móvil, escribe la clave y añádela a la pantalla de inicio.
 
-La oficina se niega a arrancar en la nube sin una `OFICINA_CLAVE` de 12 caracteres o más. La comprobación de salud está en `/salud`.
+Grossmart se niega a arrancar en la nube sin una `OFICINA_CLAVE` de 12 caracteres o más. La comprobación de salud está en `/salud`.
 
 ## Cómo funciona
 
@@ -64,11 +65,11 @@ Navegador (planta) ──► Coordinación ──► Agente ──► ACP ──
 4. **Informe.** Cuando el equipo termina, Coordinación redacta un informe consolidado para Grossman.
 5. **Seguimiento.** Si un agente no puede seguir sin una decisión, termina con `PREGUNTA PARA GROSSMAN: …`. La tarea queda *Esperando* y aparece en «Para Grossman». Al responder, el agente continúa. Lo que pongan bajo `## Para la memoria del proyecto` se guarda en la memoria de ese proyecto.
 
-También se puede encargar algo directamente a un agente desde su expediente (al pulsar su escritorio), elegir el proyecto o dejar que la oficina lo detecte, y dejarlo *pendiente* para más adelante.
+También se puede encargar algo directamente a un agente desde su expediente (al pulsar su escritorio), elegir el proyecto o dejar que Grossmart lo detecte, y dejarlo *pendiente* para más adelante.
 
 ### AionUi
 
-AionUi lanza Claude Code mediante el **Agent Client Protocol (ACP)**. La Oficina usa exactamente ese protocolo y ese puente, así que comparte con AionUi la misma infraestructura: Claude Code, la cuenta del usuario y la configuración de `~/.claude`. AionUi no documenta una API externa para enviarle encargos desde otra aplicación. Por eso La Oficina hace de cliente ACP por sí misma (`server/acp.mjs`) en lugar de pasar por la ventana de AionUi. Si AionUi usa otro puente ACP, basta con indicarlo en `EJECUTOR.comando` / `argumentos`, o con la variable `OFICINA_ACP_COMANDO`.
+AionUi lanza Claude Code mediante el **Agent Client Protocol (ACP)**. Grossmart usa exactamente ese protocolo y ese puente, así que comparte con AionUi la misma infraestructura: Claude Code, la cuenta del usuario y la configuración de `~/.claude`. AionUi no documenta una API externa para enviarle encargos desde otra aplicación. Por eso GROSSMART hace de cliente ACP por sí misma (`server/acp.mjs`) en lugar de pasar por la ventana de AionUi. Si AionUi usa otro puente ACP, basta con indicarlo en `EJECUTOR.comando` / `argumentos`, o con la variable `OFICINA_ACP_COMANDO`.
 
 ### Estados de una tarea
 
@@ -84,11 +85,11 @@ Todo está en **`config/oficina.config.mjs`**: proyectos, departamentos, agentes
 
 ## Seguridad
 
-La Oficina recibe órdenes y las convierte en trabajo de agentes, así que está pensada para que nadie más pueda usarla y para que un agente no pueda ser engañado.
+Grossmart recibe órdenes y las convierte en trabajo de agentes, así que está pensado para que nadie más pueda usarlo y para que un agente no pueda ser engañado.
 
 **Quién entra**
 - Desde tu ordenador (`localhost`) se entra sin clave. Desde cualquier otro sitio hace falta `OFICINA_CLAVE`. En la nube siempre, sin excepciones.
-- Abierta a la red, la oficina **se niega a arrancar** sin clave o con una de menos de 12 caracteres.
+- Abierto a la red, Grossmart **se niega a arrancar** sin clave o con una de menos de 12 caracteres.
 - Sesión: cookie firmada (HMAC) con un secreto aleatorio del servidor (`datos/secreto-sesiones`). Es `HttpOnly`, `SameSite=Strict`, `Secure` con https, y caduca en 30 días. Cambiar la clave o borrar ese archivo cierra todas las sesiones. Botón «Salir» en el móvil.
 - Contra quien prueba claves: 5 fallos desde una dirección la bloquean 15 minutos; 30 fallos en total bloquean la puerta para todos durante 15 minutos. Cada intento queda en el registro.
 - Contra webs maliciosas abiertas en tu navegador: las escrituras solo se aceptan en JSON y desde el mismo origen (CSRF). En modo local se exige que la petición vaya dirigida a `localhost` (DNS rebinding). Un reenvío público sin firma de Tailscale pide clave.
@@ -100,8 +101,8 @@ La Oficina recibe órdenes y las convierte en trabajo de agentes, así que está
 **Qué pueden hacer los agentes**
 - Solo tienen las herramientas de `EJECUTOR.herramientas`, por defecto **buscar y leer en la web**. No pueden ejecutar comandos ni leer archivos del servidor: no es que se les pida que no lo hagan, es que no tienen con qué. Por eso una web maliciosa no puede conseguir que un agente robe la llave de Claude o instale nada.
 - No cargan ajustes personales ni conectores (`settingSources: []`). Un agente no puede escribirse permisos a sí mismo.
-- Si se amplían sus herramientas en un ordenador propio, la oficina solo concede lectura, búsqueda o edición dentro de la carpeta de su proyecto. `Bash` está siempre prohibido.
-- Los agentes no reciben los secretos de la oficina (`OFICINA_*`). Además, sus instrucciones les dicen que lo leído en webs o documentos es información, nunca órdenes.
+- Si se amplían sus herramientas en un ordenador propio, Grossmart solo concede lectura, búsqueda o edición dentro de la carpeta de su proyecto. `Bash` está siempre prohibido.
+- Los agentes no reciben los secretos de Grossmart (`OFICINA_*`). Además, sus instrucciones les dicen que lo leído en webs o documentos es información, nunca órdenes.
 
 **El servidor**
 - El contenedor no trabaja como administrador: arranca, se adueña de `/datos` y pasa al usuario `node`. Si no puede, no arranca.

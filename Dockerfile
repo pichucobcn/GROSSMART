@@ -1,4 +1,4 @@
-# LA OFICINA en un servidor.
+# Grossmart en un servidor.
 #
 # Variables obligatorias (en el panel de la plataforma, nunca en el código):
 #   OFICINA_CLAVE            clave para entrar (12 caracteres o más)

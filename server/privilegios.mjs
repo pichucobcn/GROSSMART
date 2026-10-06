@@ -1,6 +1,6 @@
-// Si la oficina arranca como root (pasa en contenedores: los discos de las
+// Si Grossmart arranca como root (pasa en contenedores: los discos de las
 // plataformas se montan como root), prepara su carpeta de datos y se convierte
-// en un usuario normal antes de hacer nada más. Así, ni la oficina ni los
+// en un usuario normal antes de hacer nada más. Así, ni Grossmart ni los
 // agentes que lanza tienen permisos de administrador.
 
 import { chownSync, mkdirSync, readdirSync, readFileSync } from "node:fs";

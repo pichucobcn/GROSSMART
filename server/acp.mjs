@@ -1,5 +1,5 @@
 // Cliente mínimo del Agent Client Protocol (ACP): JSON-RPC 2.0 sobre stdio,
-// un mensaje por línea. La Oficina hace de "cliente" (como AionUi o Zed) y el
+// un mensaje por línea. Grossmart hace de "cliente" (como AionUi o Zed) y el
 // puente de Claude Code hace de "agente".
 
 import { spawn } from "node:child_process";
@@ -54,7 +54,7 @@ export class SesionACP {
     return this.#llamar("initialize", {
       protocolVersion: VERSION_PROTOCOLO,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-      clientInfo: { name: "la-oficina", version: "0.1.0" },
+      clientInfo: { name: "grossmart", version: "0.1.0" },
     });
   }
 
@@ -165,7 +165,7 @@ export class SesionACP {
         });
         return;
       }
-      this.#enviar({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: `La Oficina no implementa ${m.method}` } });
+      this.#enviar({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: `Grossmart no implementa ${m.method}` } });
     }
   }
 }

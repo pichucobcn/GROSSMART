@@ -1,4 +1,4 @@
-// LA OFICINA · servidor
+// Grossmart · servidor
 //   node server/index.mjs          → http://127.0.0.1:4321
 //   node server/index.mjs --movil  → también desde el móvil (wifi), con clave
 
@@ -21,7 +21,7 @@ const DATOS = process.env.OFICINA_DATOS || path.join(RAIZ, "datos");
 // Antes que nada: si somos root, pasar a un usuario normal (ver privilegios.mjs).
 const soltado = soltarPrivilegios(process.env.OFICINA_USUARIO, DATOS);
 if (process.getuid?.() === 0 && (process.env.OFICINA_EN_LA_NUBE || process.env.OFICINA_USUARIO)) {
-  console.error("\n  La oficina no trabaja como administrador (root). Defina OFICINA_USUARIO.\n");
+  console.error("\n  Grossmart no trabaja como administrador (root). Defina OFICINA_USUARIO.\n");
   process.exit(1);
 }
 
@@ -156,9 +156,9 @@ const servidor = http.createServer(async (req, res) => {
   try {
     await atender(req, res);
   } catch (e) {
-    // Nada de lo que llegue de fuera debe tumbar la oficina.
+    // Nada de lo que llegue de fuera debe tumbar Grossmart.
     console.error(`[servidor] ${req.method} ${String(req.url).slice(0, 200)}: ${e.message}`);
-    if (!res.headersSent) json(res, 500, { error: "La oficina no pudo atender la petición." });
+    if (!res.headersSent) json(res, 500, { error: "Grossmart no pudo atender la petición." });
     else res.end();
   }
 });
@@ -223,19 +223,19 @@ const clave = process.env.OFICINA_CLAVE || config.SERVIDOR.clave || "";
 if ((abierta || EN_LA_NUBE) && clave.length < LARGO_MINIMO_CLAVE) {
   console.error(
     clave
-      ? `\n  La clave es demasiado corta: abierta a la red, la oficina pide al menos ${LARGO_MINIMO_CLAVE} caracteres.\n`
-      : `\n  La oficina no se abre a la red sin clave. Arranque con OFICINA_CLAVE="…" (${LARGO_MINIMO_CLAVE} caracteres o más).\n`,
+      ? `\n  La clave es demasiado corta: abierto a la red, Grossmart pide al menos ${LARGO_MINIMO_CLAVE} caracteres.\n`
+      : `\n  Grossmart no se abre a la red sin clave. Arranque con OFICINA_CLAVE="…" (${LARGO_MINIMO_CLAVE} caracteres o más).\n`,
   );
   process.exit(1);
 }
 servidor.on("error", (e) => {
-  console.error(e.code === "EADDRINUSE" ? `\n  El puerto ${puerto} ya está ocupado: ¿la oficina ya está abierta en otra ventana?\n` : e);
+  console.error(e.code === "EADDRINUSE" ? `\n  El puerto ${puerto} ya está ocupado: ¿Grossmart ya está abierto en otra ventana?\n` : e);
   process.exit(1);
 });
-// La oficina solo empieza a trabajar cuando tiene la puerta abierta.
+// Grossmart solo empieza a trabajar cuando tiene la puerta abierta.
 servidor.listen(puerto, host, () => {
   oficina.iniciar();
-  console.log(`\n  LA OFICINA abre sus puertas en http://${host}:${puerto}`);
+  console.log(`\n  Grossmart abre sus puertas en http://${host}:${puerto}`);
   console.log(`  Ejecutor: ${ejecutor.descripcion}`);
   console.log(`  Archivo:  ${DATOS}${soltado ? `  (usuario ${process.env.OFICINA_USUARIO})` : ""}\n`);
   if (abierta && !process.env.OFICINA_EN_LA_NUBE) {

@@ -1,4 +1,4 @@
-// El ejecutor: la línea entre la oficina y Claude Code.
+// El ejecutor: la línea entre Grossmart y Claude Code.
 //   tipo "acp"      → puente ACP de Claude Code (cuenta del usuario)
 //   tipo "simulado" → respuestas de ensayo, sin llamar a nadie
 
@@ -110,7 +110,7 @@ function ejecutorSimulado() {
       const texto = [
         `# ${tarea.slice(0, 90)}`,
         "",
-        "*Documento de ensayo: la oficina está en modo simulado y no ha llamado a Claude Code.*",
+        "*Documento de ensayo: Grossmart está en modo simulado y no ha llamado a Claude Code.*",
         "",
         "## Resumen",
         "",

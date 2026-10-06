@@ -1,4 +1,4 @@
-// LA OFICINA · interfaz
+// Grossmart · interfaz
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => window.escapar(s ?? "");
@@ -54,10 +54,10 @@
     const res = await fetch(ruta, cuerpo === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
     if (res.status === 401) {
       location.href = "/entrar"; // la llave caducó: volver a la puerta
-      throw new Error("Hace falta la clave de la oficina.");
+      throw new Error("Hace falta la clave de Grossmart.");
     }
     const datos = await res.json();
-    if (!res.ok) throw new Error(datos.error || "La oficina no pudo atender la petición.");
+    if (!res.ok) throw new Error(datos.error || "Grossmart no pudo atender la petición.");
     return datos;
   }
 
@@ -294,7 +294,7 @@
           <div class="fila-campos">
             <label>Proyecto
               <select name="proyecto">
-                <option value="${a.coordinador ? "" : "auto"}">${a.coordinador ? "Que Coordinación lo decida" : "Que la oficina lo detecte"}</option>
+                <option value="${a.coordinador ? "" : "auto"}">${a.coordinador ? "Que Coordinación lo decida" : "Que Grossmart lo detecte"}</option>
                 ${opciones}
               </select>
             </label>
@@ -445,13 +445,13 @@
           const texto = progreso?.texto ?? t.progreso ?? "";
           const usadas = progreso?.herramientas || t.herramientas || [];
           doc = `<div class="documento en-curso">
-            <div class="documento-membrete"><span>La Oficina · ${esc(a.nombre)}</span><span>${t.id}</span></div>
+            <div class="documento-membrete"><span>Grossmart · ${esc(a.nombre)}</span><span>${t.id}</span></div>
             ${usadas.length ? `<p class="herramientas">Consultando: ${esc(usadas.slice(-4).join(" · "))}</p>` : ""}
             ${texto ? window.markdown(texto) : `<p class="documento-vacio">${esc(a.nombre)} se pone a trabajar…</p>`}<span class="cursor"></span>
           </div>`;
         } else if (t.resultado) {
           doc = `<div class="documento">
-            <div class="documento-membrete"><span>La Oficina · ${esc(a.nombre)} · ${esc(proyecto(t.proyecto).nombre)}</span><span>${t.id}</span></div>
+            <div class="documento-membrete"><span>Grossmart · ${esc(a.nombre)} · ${esc(proyecto(t.proyecto).nombre)}</span><span>${t.id}</span></div>
             ${window.markdown(t.resultado)}
           </div>`;
         } else {
@@ -499,10 +499,10 @@
         const sub = e.tareas.map(tarea).filter(Boolean);
         let informeHtml;
         if (informe?.resultado && informe.estado === "terminada") {
-          informeHtml = `<div class="documento"><div class="documento-membrete"><span>La Oficina · Coordinación · Informe para Grossman</span><span>${e.id}</span></div>${window.markdown(informe.resultado)}</div>`;
+          informeHtml = `<div class="documento"><div class="documento-membrete"><span>Grossmart · Coordinación · Informe para Grossman</span><span>${e.id}</span></div>${window.markdown(informe.resultado)}</div>`;
         } else if (informe?.estado === "trabajando") {
           const texto = PROGRESO.get(informe.id)?.texto ?? informe.progreso ?? "";
-          informeHtml = `<div class="documento en-curso"><div class="documento-membrete"><span>La Oficina · Coordinación</span><span>${e.id}</span></div>${texto ? window.markdown(texto) : `<p class="documento-vacio">Coordinación redacta el informe…</p>`}<span class="cursor"></span></div>`;
+          informeHtml = `<div class="documento en-curso"><div class="documento-membrete"><span>Grossmart · Coordinación</span><span>${e.id}</span></div>${texto ? window.markdown(texto) : `<p class="documento-vacio">Coordinación redacta el informe…</p>`}<span class="cursor"></span></div>`;
         } else {
           informeHtml = `<p class="vacio">${e.estado === "analizando" ? "Coordinación está estudiando el encargo." : "Coordinación redactará el informe cuando el equipo termine."}</p>`;
         }
@@ -639,7 +639,7 @@
   function abrirNuevoProyecto() {
     abrirCarpeta(
       `<header class="ficha-tecnica" style="grid-template-columns:1fr"><div><p class="rotulo">Archivo de proyectos</p><h2 id="carpeta-titulo">Expediente nuevo</h2>
-        <p class="funcion">El proyecto tendrá su propio archivador, su memoria y su carpeta de trabajo. Los empleados de la oficina trabajarán para él como para los demás.</p></div></header>
+        <p class="funcion">El proyecto tendrá su propio archivador, su memoria y su carpeta de trabajo. Los empleados de Grossmart trabajarán para él como para los demás.</p></div></header>
       <form class="formulario-encargo" id="form-proyecto">
         <div class="fila-campos">
           <label style="flex:1">Nombre <input type="text" name="nombre" required></label>
@@ -717,7 +717,7 @@
       const linea = $("#linea");
       linea.classList.remove("ok");
       linea.classList.add("mal");
-      linea.querySelector(".linea-texto").textContent = "Sin conexión con la oficina…";
+      linea.querySelector(".linea-texto").textContent = "Sin conexión con Grossmart…";
     };
   }
 
@@ -811,5 +811,5 @@
     }
   }
 
-  iniciar().catch((e) => aviso(`No se pudo abrir la oficina: ${e.message}`, true));
+  iniciar().catch((e) => aviso(`No se pudo abrir Grossmart: ${e.message}`, true));
 })();

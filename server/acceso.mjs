@@ -1,4 +1,4 @@
-// La puerta de la oficina.
+// La puerta de Grossmart.
 //
 // · Desde el propio ordenador se entra sin clave (solo si la petición viene de
 //   este ordenador Y va dirigida a "localhost": así una web maliciosa no puede
@@ -158,14 +158,14 @@ export function crearPuerta({ clave, enLaNube = false, dirDatos, registro = cons
       } else {
         apuntarFallo(ip);
         await new Promise((r) => setTimeout(r, 1000));
-        paginaEntrada(res, 401, "Esa no es la clave de la oficina.");
+        paginaEntrada(res, 401, "Esa no es la clave de Grossmart.");
       }
       return false;
     }
 
     if (LIBRES.has(ruta)) {
       if (ruta === "/entrar") {
-        paginaEntrada(res, 200, clave ? null : "Esta oficina no tiene clave y solo se abre desde su propio ordenador.");
+        paginaEntrada(res, 200, clave ? null : "Grossmart no tiene clave y solo se abre desde su propio ordenador.");
         return false;
       }
       return true;
@@ -173,7 +173,7 @@ export function crearPuerta({ clave, enLaNube = false, dirDatos, registro = cons
 
     if (ruta.startsWith("/api/")) {
       res.writeHead(401, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: "Hace falta la clave de la oficina." }));
+      res.end(JSON.stringify({ error: "Hace falta la clave de Grossmart." }));
     } else {
       res.writeHead(303, { location: "/entrar" });
       res.end();
@@ -184,7 +184,7 @@ export function crearPuerta({ clave, enLaNube = false, dirDatos, registro = cons
   return { atender, conClave: Boolean(clave), ipCliente };
 }
 
-// Secreto aleatorio del servidor, guardado junto al archivo de la oficina.
+// Secreto aleatorio del servidor, guardado junto al archivo de Grossmart.
 // Borrarlo cierra todas las sesiones.
 function leerSecreto(dirDatos) {
   const archivo = path.join(dirDatos, "secreto-sesiones");
@@ -221,7 +221,7 @@ function paginaEntrada(res, codigo, mensaje) {
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#4A3024">
   <meta name="robots" content="noindex, nofollow">
-  <title>La Oficina</title>
+  <title>Grossmart</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/icono-apple.png">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Playfair+Display:wght@800&family=Special+Elite&display=swap">
@@ -229,10 +229,10 @@ function paginaEntrada(res, codigo, mensaje) {
 </head>
 <body class="entrada">
   <main class="puerta">
-    <h1>La Oficina</h1>
+    <h1>Grossmart</h1>
     <p class="subtitulo">La mente de Grossman</p>
     <form method="post" action="/entrar" class="formulario-encargo">
-      <label class="encargo-rotulo" for="clave">Clave de la oficina</label>
+      <label class="encargo-rotulo" for="clave">Clave de Grossmart</label>
       <input id="clave" name="clave" type="password" autocomplete="current-password" required autofocus>
       ${mensaje ? `<p class="puerta-aviso">${mensaje}</p>` : ""}
       <button class="boton boton-principal" type="submit">Entrar</button>
