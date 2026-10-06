@@ -130,6 +130,7 @@
     const cuerpo = $("#centro");
     if (pestana === "operaciones") cuerpo.innerHTML = vistaOperaciones();
     else if (pestana === "proyectos") cuerpo.innerHTML = vistaProyectos();
+    else if (pestana === "correo") cuerpo.innerHTML = vistaCorreo();
     else cuerpo.innerHTML = vistaDepartamentos();
   }
 
@@ -153,11 +154,16 @@
         <div class="cifra"><strong>${encargosAbiertos.length}</strong><span>encargos en curso</span></div>
         <div class="cifra"><strong>${pendientes.length}</strong><span>tareas abiertas</span></div>
         <div class="cifra"><strong>${agentesOcupados}</strong><span>trabajando</span></div>
-        <div class="cifra ${alertas.length ? "alerta" : ""}"><strong>${alertas.length}</strong><span>para Grossman</span></div>
+        <div class="cifra ${alertas.length + (ESTADO.correo?.pendientes || 0) ? "alerta" : ""}"><strong>${alertas.length + (ESTADO.correo?.pendientes || 0)}</strong><span>para Grossman</span></div>
       </div>
 
       <section class="seccion">
         <h3>Para Grossman</h3>
+        ${
+          ESTADO.correo?.pendientes
+            ? `<button class="ficha alerta" data-accion="bandeja" style="--color-proyecto:#7A6A55"><div class="ficha-linea"><span class="ficha-titulo">${ESTADO.correo.pendientes} propuesta${ESTADO.correo.pendientes === 1 ? "" : "s"} de correo esperan su visto bueno</span>${sello("Correo", "#7A6A55")}</div><div class="ficha-meta">Amelia · Secretaría</div></button>`
+            : ""
+        }
         ${
           alertas.length
             ? alertas
@@ -213,6 +219,180 @@
         })
         .join("") + `<div class="acciones" style="justify-content:flex-start;margin-top:18px"><button class="boton" data-accion="nuevo-proyecto">Abrir expediente nuevo</button></div>`
     );
+  }
+
+  // ── correo ───────────────────────────────────────────────────────────────
+  function vistaCorreo() {
+    const c = ESTADO.correo || {};
+    if (!c.configurado) {
+      return `<p>Amelia, de Secretaría, puede leer su correo, ordenarlo por proyecto y preparar borradores. <strong>Nunca envía ni borra nada</strong>: usted aprueba cada propuesta.</p>
+        <p class="vacio">Todavía no hay ninguna cuenta conectada. Las cuentas se conectan con variables del servidor: vea «Correo» en el README de Grossmart o pídale a Claude que le guíe.</p>`;
+    }
+    const cuentas = c.cuentas
+      .map(
+        (x) => `<div class="ficha" style="cursor:default;--color-proyecto:${x.error ? "#862820" : x.lista ? "#315447" : "#B18A4A"}">
+          <div class="ficha-linea"><span class="ficha-titulo">${esc(x.nombre)}</span>${x.error ? sello("Error", "#862820") : x.lista ? sello("Conectada", "#315447") : sello("Sin conectar", "#B18A4A")}</div>
+          <div class="ficha-meta">${esc(x.usuario)}${x.ultimaRevision ? ` · revisada ${fecha(x.ultimaRevision)}` : ""}</div>
+          ${x.error ? `<div class="pregunta">${esc(x.error)}</div>` : ""}
+          ${!x.lista && x.id === "hotmail" ? `<div class="acciones" style="justify-content:flex-start"><button class="boton" data-accion="conectar-hotmail">Conectar Hotmail</button></div>` : ""}
+        </div>`,
+      )
+      .join("");
+    return `
+      <section class="seccion">
+        <h3>Bandeja de Amelia <small>próxima revisión ${esc(c.proximaRevision || "")}</small></h3>
+        <button class="ficha ${c.pendientes ? "alerta" : ""}" data-accion="bandeja" style="--color-proyecto:#7A6A55">
+          <div class="ficha-linea"><span class="ficha-titulo">${c.pendientes ? `${c.pendientes} propuesta${c.pendientes === 1 ? "" : "s"} esperan su visto bueno` : "Nada pendiente de aprobar"}</span>${sello("Abrir", "#7A6A55")}</div>
+          <div class="ficha-meta">Revisa a las 9:00 y a las 15:00 (hora de Barcelona)</div>
+        </button>
+        <div class="acciones" style="justify-content:flex-start"><button class="boton boton-principal" data-accion="revisar-correo">Revisar el correo ahora</button></div>
+      </section>
+      <section class="seccion"><h3>Cuentas</h3>${cuentas}<div id="hotmail-codigo"></div></section>
+      <p class="vacio" style="font-size:.9rem">Para pedirle algo concreto («prepara un borrador para mi gestor con la factura de la luz»), abra el expediente de Amelia y déle un encargo.</p>`;
+  }
+
+  async function conectarHotmail() {
+    try {
+      const r = await api("/api/correo/microsoft/conectar", {});
+      const zona = $("#hotmail-codigo");
+      if (zona)
+        zona.innerHTML = `<div class="recuadro-pregunta" style="margin-top:10px">
+          <p><strong>Conectar Hotmail</strong></p>
+          <p>1. Abra <a href="${esc(r.enlace)}" target="_blank" rel="noopener noreferrer">${esc(r.enlace)}</a></p>
+          <p>2. Escriba este código: <span style="font-family:var(--letra-maquina);font-size:1.4rem;letter-spacing:.12em">${esc(r.codigo)}</span></p>
+          <p>3. Entre con su cuenta de Hotmail y acepte. Esta pantalla se actualizará sola.</p>
+        </div>`;
+      const espera = setInterval(async () => {
+        const c = await api("/api/correo").catch(() => null);
+        const inicio = c?.microsoft?.inicio;
+        if (c?.microsoft?.conectada || (inicio && inicio.estado !== "esperando")) {
+          clearInterval(espera);
+          aviso(c?.microsoft?.conectada ? "Hotmail conectada." : `No se pudo conectar: ${inicio?.error || inicio?.estado}`, !c?.microsoft?.conectada);
+          const z = $("#hotmail-codigo");
+          if (z) z.innerHTML = "";
+        }
+      }, 3000);
+    } catch (e) {
+      aviso(e.message, true);
+    }
+  }
+
+  async function revisarCorreo() {
+    try {
+      const t = await api("/api/correo/revisar", {});
+      aviso("Amelia está revisando el correo.");
+      abrirTarea(t.id);
+    } catch (e) {
+      aviso(e.message, true);
+    }
+  }
+
+  async function abrirBandeja() {
+    let datos;
+    try {
+      datos = await api("/api/correo");
+    } catch (e) {
+      return aviso(e.message, true);
+    }
+    const porRef = new Map();
+    for (const p of datos.propuestas) {
+      const k = p.ref || `nuevo-${p.id}`;
+      if (!porRef.has(k)) porRef.set(k, []);
+      porRef.get(k).push(p);
+    }
+    const vivas = (lista) => lista.some((p) => ["propuesta", "error"].includes(p.estado));
+    const mensajes = new Map(datos.mensajes.map((m) => [m.ref, m]));
+    const grupos = [...porRef.entries()].filter(([, lista]) => vivas(lista)).reverse();
+    const recientes = datos.mensajes.filter((m) => !porRef.has(m.ref) || !vivas(porRef.get(m.ref))).slice(-40).reverse();
+    const nombreCuenta = (id) => datos.cuentas.find((c) => c.id === id)?.nombre || id;
+    const descripcion = (p) =>
+      ({
+        leido: "Marcar como leído",
+        archivar: "Archivar (sacar de la bandeja de entrada; no se borra)",
+        etiquetar: `Etiquetar «Grossmart/${esc(p.etiqueta)}»`,
+        borrador: "Guardar borrador (no se envía)",
+      })[p.tipo] || esc(p.tipo);
+    const filaPropuesta = (p) => {
+      const activa = ["propuesta", "error"].includes(p.estado);
+      const estado = p.estado === "hecha" ? sello("Hecho", "#315447") : p.estado === "descartada" ? sello("Descartada", "#8C8273") : p.estado === "error" ? sello("Error", "#862820") : "";
+      const borrador =
+        p.tipo === "borrador"
+          ? `<div class="borrador" data-id="${p.id}">
+              <label>Para <input type="text" class="b-para" value="${esc(p.para.join(", "))}" ${activa ? "" : "disabled"}></label>
+              <label>Asunto <input type="text" class="b-asunto" value="${esc(p.asunto)}" ${activa ? "" : "disabled"}></label>
+              <textarea class="campo-texto b-cuerpo" ${activa ? "" : "disabled"}>${esc(p.cuerpo)}</textarea>
+              ${p.adjuntos?.length ? `<p class="ficha-meta">Adjuntos: ${p.adjuntos.map((a) => `📎 ${esc(a.nombre)}`).join(" · ")}</p>` : ""}
+            </div>`
+          : "";
+      return `<li class="propuesta ${activa ? "" : "cerrada"}">
+          <label class="casilla-propuesta"><input type="checkbox" class="elegir" value="${p.id}" ${activa ? "checked" : "disabled"}> ${descripcion(p)} ${estado}</label>
+          ${p.error ? `<p class="pregunta">${esc(p.error)}</p>` : ""}
+          ${borrador}
+        </li>`;
+    };
+    const tarjeta = (m, propuestas) => {
+      const p = m?.proyecto ? proyecto(m.proyecto) : null;
+      return `<article class="correo ${m?.sospechoso ? "sospechoso" : ""}" style="--color-proyecto:${p?.color || "#7A6A55"}">
+        ${
+          m
+            ? `<header class="correo-cabecera">
+                <div><strong>${esc(m.de.nombre || m.de.direccion)}</strong> <small>&lt;${esc(m.de.direccion)}&gt;</small></div>
+                <div class="ficha-meta">${esc(nombreCuenta(m.cuenta))} · ${fecha(m.fecha)}${p ? ` · ${esc(p.nombre)}` : ""}${m.importancia === "alta" ? " · <strong>importante</strong>" : ""}</div>
+                <div class="correo-asunto">${esc(m.asunto)}</div>
+              </header>
+              ${m.sospechoso ? `<p class="recuadro-error">Amelia sospecha de este correo. Revíselo con cuidado.</p>` : ""}
+              ${m.resumen ? `<p class="correo-resumen">${esc(m.resumen)}</p>` : ""}
+              <details><summary>Ver el correo</summary><pre class="correo-texto">${esc(m.extracto)}</pre>${m.adjuntos.length ? `<p class="ficha-meta">Adjuntos: ${m.adjuntos.map((a) => esc(a.nombre)).join(" · ")}</p>` : ""}</details>`
+            : `<header class="correo-cabecera"><div class="correo-asunto">Borrador nuevo (${esc(nombreCuenta(propuestas[0].cuenta))})</div></header>`
+        }
+        ${propuestas?.length ? `<ul class="propuestas">${propuestas.map(filaPropuesta).join("")}</ul>` : ""}
+      </article>`;
+    };
+
+    const carpeta = abrirCarpeta(
+      `<header class="ficha-tecnica" style="grid-template-columns:1fr auto">
+        <div>
+          <p class="rotulo">Secretaría · Amelia</p>
+          <h2 id="carpeta-titulo">Bandeja del correo</h2>
+          <p class="funcion">Nada se toca hasta que usted lo aprueba. Grossmart nunca envía ni borra correos: los borradores quedan en su carpeta de Borradores para que los revise y los envíe usted.</p>
+        </div>
+      </header>
+      ${grupos.length ? grupos.map(([ref, lista]) => tarjeta(mensajes.get(ref), lista)).join("") : `<p class="vacio">No hay propuestas pendientes.</p>`}
+      ${grupos.length ? `<div class="acciones barra-aprobar"><button class="boton" id="descartar-correo" type="button">Descartar las marcadas</button><button class="boton boton-principal" id="aprobar-correo" type="button">Aprobar las marcadas</button></div>` : ""}
+      ${recientes.length ? `<section class="bloque" style="margin-top:26px"><h3>Correo reciente</h3>${recientes.map((m) => tarjeta(m, (porRef.get(m.ref) || []).filter((p) => p.estado === "hecha"))).join("")}</section>` : ""}`,
+      {},
+    );
+
+    const marcadas = () => [...carpeta.querySelectorAll(".elegir:checked")].map((c) => c.value);
+    carpeta.querySelector("#aprobar-correo")?.addEventListener("click", async (ev) => {
+      const ids = marcadas();
+      if (!ids.length) return aviso("No hay nada marcado.", true);
+      const ediciones = {};
+      for (const b of carpeta.querySelectorAll(".borrador")) {
+        if (!ids.includes(b.dataset.id)) continue;
+        ediciones[b.dataset.id] = {
+          para: b.querySelector(".b-para").value.split(/[,;\s]+/).filter(Boolean),
+          asunto: b.querySelector(".b-asunto").value,
+          cuerpo: b.querySelector(".b-cuerpo").value,
+        };
+      }
+      ev.target.disabled = true;
+      ev.target.textContent = "Aplicando…";
+      try {
+        const r = await api("/api/correo/aprobar", { ids, ediciones });
+        aviso(r.errores.length ? `${r.hechas} hechas · ${r.errores.length} con error` : `Hecho: ${r.hechas} propuesta${r.hechas === 1 ? "" : "s"}.`, r.errores.length > 0);
+      } catch (e) {
+        aviso(e.message, true);
+      }
+      abrirBandeja();
+    });
+    carpeta.querySelector("#descartar-correo")?.addEventListener("click", async () => {
+      const ids = marcadas();
+      if (!ids.length) return aviso("No hay nada marcado.", true);
+      await api("/api/correo/descartar", { ids }).catch((e) => aviso(e.message, true));
+      aviso("Descartadas.");
+      abrirBandeja();
+    });
   }
 
   function vistaDepartamentos() {
@@ -649,7 +829,12 @@
       </section>
       ${lista("decisiones", "Decisiones tomadas", "Nueva decisión…")}
       ${lista("instrucciones", "Instrucciones permanentes", "Nueva instrucción para todos los agentes…")}
-      ${lista("notas", "Notas del archivo", "Nota…")}`;
+      ${lista("notas", "Notas del archivo", "Nota…")}
+      <section class="bloque"><h3>Archivos del proyecto</h3>
+        <p class="ficha-meta" style="margin-top:0">Dossier, rider, contratos, fotos… Amelia puede adjuntarlos a los borradores. Hasta 15 MB cada uno.</p>
+        <ul class="lista-memoria" id="lista-archivos"></ul>
+        <label class="boton" style="display:inline-block">Subir archivos<input type="file" id="subir-archivos" multiple hidden></label>
+      </section>`;
 
     const pintarMemoria = () => {
       if (!memoria) return;
@@ -705,6 +890,50 @@
       },
     });
     cargarMemoria(true);
+
+    const pintarArchivos = async () => {
+      try {
+        const lista = await api(`/api/proyectos/${encodeURIComponent(id)}/archivos`);
+        const ul = $("#lista-archivos");
+        if (!ul) return;
+        ul.innerHTML = lista.length
+          ? lista
+              .map(
+                (a) => `<li><span><a href="/api/proyectos/${encodeURIComponent(id)}/archivos/descargar?nombre=${encodeURIComponent(a.nombre)}">${esc(a.nombre)}</a> <small>· ${Math.max(1, Math.round(a.tamano / 1024))} KB · ${fecha(a.fecha)}</small></span>
+                <button class="boton boton-discreto" data-borrar-archivo="${esc(a.nombre)}">quitar</button></li>`,
+              )
+              .join("")
+          : `<li class="vacio">Sin archivos todavía.</li>`;
+      } catch (e) {
+        aviso(e.message, true);
+      }
+    };
+    pintarArchivos();
+    carpeta.querySelector("#subir-archivos").addEventListener("change", async (ev) => {
+      for (const f of ev.target.files) {
+        try {
+          const res = await fetch(`/api/proyectos/${encodeURIComponent(id)}/archivos/subir`, {
+            method: "POST",
+            headers: { "content-type": "application/octet-stream", "x-nombre": encodeURIComponent(f.name) },
+            body: f,
+          });
+          const r = await res.json();
+          if (!res.ok) throw new Error(r.error);
+          aviso(`Subido: ${r.nombre}`);
+        } catch (e) {
+          aviso(`${f.name}: ${e.message}`, true);
+        }
+      }
+      ev.target.value = "";
+      pintarArchivos();
+    });
+    carpeta.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-borrar-archivo]");
+      if (!b) return;
+      if (!confirm(`¿Quitar «${b.dataset.borrarArchivo}» del proyecto?`)) return;
+      await api(`/api/proyectos/${encodeURIComponent(id)}/archivos/borrar`, { nombre: b.dataset.borrarArchivo }).catch((e) => aviso(e.message, true));
+      pintarArchivos();
+    });
 
     $("#form-contexto").addEventListener("submit", async (ev) => {
       ev.preventDefault();
@@ -862,6 +1091,9 @@
     else if (el.dataset.proyecto) abrirProyecto(el.dataset.proyecto);
     else if (el.dataset.accion === "nuevo-proyecto") abrirNuevoProyecto();
     else if (el.dataset.accion === "perfil") abrirPerfil();
+    else if (el.dataset.accion === "bandeja") abrirBandeja();
+    else if (el.dataset.accion === "revisar-correo") revisarCorreo();
+    else if (el.dataset.accion === "conectar-hotmail") conectarHotmail();
     else if (el.dataset.vista) cambiarPestana(el.dataset.vista);
   }
 

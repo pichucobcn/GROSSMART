@@ -31,7 +31,7 @@ function ejecutorACP(config) {
     tipo: "acp",
     descripcion: `Claude Code vía ACP (${path.basename(comando)})`,
 
-    async ejecutar({ id, prompt, cwd, alTexto, alEvento }) {
+    async ejecutar({ id, prompt, cwd, alTexto, alEvento, herramientas }) {
       mkdirSync(cwd, { recursive: true });
       const sesion = new SesionACP({
         comando,
@@ -39,7 +39,8 @@ function ejecutorACP(config) {
         entorno: config.entorno,
         cwd,
         autoAprobar: config.autoAprobarPermisos,
-        herramientas: config.herramientas,
+        // Cada agente puede tener sus propias herramientas (Secretaría: ninguna).
+        herramientas: Array.isArray(herramientas) ? herramientas : config.herramientas,
         alTexto: (t) => {
           texto += t;
           alTexto?.(t);
@@ -106,6 +107,18 @@ function ejecutorSimulado() {
     descripcion: "Modo ensayo (sin Claude Code)",
     async ejecutar({ prompt, alTexto, tipoTrabajo }) {
       if (tipoTrabajo === "plan") return { texto: "(modo ensayo: Coordinación reparte por palabras clave)" };
+      if (tipoTrabajo === "correo") {
+        const refs = [...prompt.matchAll(/<<<CORREO \w+ ref=([\w-]+) cuenta=(\w+)>>>\nDe: [^\n]*?<?([^\s<>]+@[^\s<>]+?)>?\n/g)];
+        return {
+          texto:
+            "```json\n" +
+            JSON.stringify({
+              resumen: `(ensayo) ${refs.length} correos revisados.`,
+              mensajes: refs.map(([, ref, , de]) => ({ ref, proyecto: null, importancia: "normal", categoria: "ensayo", resumen: "(ensayo)", acciones: [{ tipo: "leido" }, { tipo: "borrador", para: [de], cuerpo: "(ensayo) Recibido, gracias.\nGrossman" }] })),
+            }) +
+            "\n```",
+        };
+      }
       if (tipoTrabajo === "importacion") {
         const nombres = [...prompt.matchAll(/^- ([\w-]+): /gm)].map((m) => m[1]);
         const texto = (prompt.split("== TEXTO DE GROSSMAN ==\n")[1] || "").split("\n== FIN DEL TEXTO ==")[0];

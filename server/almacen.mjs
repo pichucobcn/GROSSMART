@@ -52,6 +52,15 @@ export class Almacen {
     this.#escribir("proyectos.json", this.proyectosExtra);
   }
 
+  // Lectura y escritura genéricas (las usa Correspondencia en datos/correo/).
+  leerJSON(relativo, porDefecto) {
+    return this.#leer(relativo, porDefecto);
+  }
+
+  escribirJSON(relativo, datos) {
+    this.#escribir(relativo, datos);
+  }
+
   guardarFichas() {
     this.#escribir("agentes.json", this.fichas);
   }

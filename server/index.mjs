@@ -9,6 +9,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as config from "../config/oficina.config.mjs";
 import { crearPuerta, LARGO_MINIMO_CLAVE } from "./acceso.mjs";
+import { Archivos, MAX_ARCHIVO } from "./archivos.mjs";
+import { Correspondencia } from "./correo/correspondencia.mjs";
 import { Almacen } from "./almacen.mjs";
 import { crearEjecutor } from "./ejecutor.mjs";
 import { Oficina } from "./oficina.mjs";
@@ -28,6 +30,8 @@ if (process.getuid?.() === 0 && (process.env.OFICINA_EN_LA_NUBE || process.env.O
 const almacen = new Almacen(DATOS);
 const ejecutor = crearEjecutor(config.EJECUTOR);
 const oficina = new Oficina({ config, almacen, ejecutor });
+const archivos = new Archivos(DATOS);
+const correo = new Correspondencia({ oficina, almacen, archivos, config: config.CORREO, dirDatos: DATOS });
 const EN_LA_NUBE = Boolean(process.env.OFICINA_EN_LA_NUBE);
 const puerta = crearPuerta({ clave: process.env.OFICINA_CLAVE || config.SERVIDOR.clave, enLaNube: EN_LA_NUBE, dirDatos: DATOS });
 const MAX_OYENTES = 20;
@@ -80,13 +84,18 @@ oficina.on("cambio", () => {
   if (pendienteCambio) return;
   pendienteCambio = setTimeout(() => {
     pendienteCambio = null;
-    avisar("estado", oficina.estado());
+    avisar("estado", estadoCompleto());
   }, 120);
 });
 oficina.on("progreso", (p) => avisar("progreso", p));
 setInterval(() => {
   for (const res of oyentes) res.write(": latido\n\n");
 }, 25_000).unref();
+
+function estadoCompleto() {
+  const r = correo.resumen();
+  return { ...oficina.estado(), correo: { configurado: r.configurado, pendientes: r.pendientes, cuentas: r.cuentas, proximaRevision: r.proximaRevision } };
+}
 
 // ── rutas ────────────────────────────────────────────────────────────────────
 const NOMBRES_HERRAMIENTAS = {
@@ -115,7 +124,7 @@ function configPublica() {
 
 const rutas = [
   ["GET", /^\/api\/config$/, () => configPublica()],
-  ["GET", /^\/api\/estado$/, () => oficina.estado()],
+  ["GET", /^\/api\/estado$/, () => estadoCompleto()],
   ["POST", /^\/api\/encargos$/, (_, cuerpo) => oficina.recibirEncargo(cuerpo)],
   ["POST", /^\/api\/tareas$/, (_, cuerpo) => oficina.asignarTarea(cuerpo)],
   ["POST", /^\/api\/tareas\/([\w-]+)\/accion$/, ([id], cuerpo) => oficina.accion(id, cuerpo.accion, cuerpo)],
@@ -126,8 +135,34 @@ const rutas = [
   ["GET", /^\/api\/perfil$/, () => oficina.perfil()],
   ["POST", /^\/api\/perfil$/, (_, cuerpo) => oficina.editarPerfil(cuerpo)],
   ["POST", /^\/api\/importar$/, (_, cuerpo) => oficina.importar(cuerpo)],
+  // Correo
+  ["GET", /^\/api\/correo$/, () => correo.resumen()],
+  ["POST", /^\/api\/correo\/revisar$/, () => correo.revisar({ origen: "pedida" })],
+  ["POST", /^\/api\/correo\/aprobar$/, (_, cuerpo) => correo.aprobar(cuerpo)],
+  ["POST", /^\/api\/correo\/descartar$/, (_, cuerpo) => correo.descartar(cuerpo)],
+  ["POST", /^\/api\/correo\/probar$/, () => correo.probar()],
+  ["POST", /^\/api\/correo\/microsoft\/conectar$/, () => correo.conectarMicrosoft()],
+  ["POST", /^\/api\/correo\/microsoft\/desconectar$/, () => correo.desconectarMicrosoft()],
+  // Archivos de cada proyecto
+  ["GET", /^\/api\/proyectos\/([\w-]+)\/archivos$/, ([id]) => (proyectoValido(id), archivos.listar(id))],
+  ["POST", /^\/api\/proyectos\/([\w-]+)\/archivos\/borrar$/, ([id], cuerpo) => (proyectoValido(id), archivos.borrar(id, cuerpo.nombre), { ok: true })],
   ["POST", /^\/api\/proyectos\/([\w-]+)\/memoria$/, ([id], cuerpo) => oficina.editarMemoria(id, cuerpo)],
 ];
+
+function proyectoValido(id) {
+  if (!oficina.proyecto(id)) throw new Error("Ese proyecto no existe.");
+}
+
+async function leerBinario(req, maximo) {
+  const trozos = [];
+  let total = 0;
+  for await (const t of req) {
+    total += t.length;
+    if (total > maximo) throw Object.assign(new Error("El archivo supera los 15 MB."), { cerrar: true });
+    trozos.push(t);
+  }
+  return Buffer.concat(trozos);
+}
 
 async function leerCuerpo(req) {
   let datos = "";
@@ -147,8 +182,8 @@ async function leerCuerpo(req) {
 
 // Una escritura solo vale si viene de la propia oficina abierta en el
 // navegador: mismo origen y en JSON (un formulario de otra web no puede).
-function mismoOrigen(req) {
-  if (!String(req.headers["content-type"] || "").startsWith("application/json")) return false;
+function mismoOrigen(req, tipo = "application/json") {
+  if (!String(req.headers["content-type"] || "").startsWith(tipo)) return false;
   const sitio = req.headers["sec-fetch-site"];
   if (sitio && sitio !== "same-origin") return false;
   const origen = req.headers.origin;
@@ -180,7 +215,7 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 servidor.headersTimeout = 20_000;
-servidor.requestTimeout = 60_000;
+servidor.requestTimeout = 180_000; // subidas de archivos desde el móvil
 
 async function atender(req, res) {
   if (!["GET", "POST", "HEAD"].includes(req.method)) return json(res, 405, { error: "Método no permitido." });
@@ -192,10 +227,43 @@ async function atender(req, res) {
   if (url.pathname === "/api/eventos") {
     if (oyentes.size >= MAX_OYENTES) return json(res, 429, { error: "Demasiadas pantallas abiertas." });
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
-    res.write(`event: estado\ndata: ${JSON.stringify(oficina.estado())}\n\n`);
+    res.write(`event: estado\ndata: ${JSON.stringify(estadoCompleto())}\n\n`);
     oyentes.add(res);
     req.on("close", () => oyentes.delete(res));
     return;
+  }
+
+  // Subir un archivo a un proyecto (cuerpo binario; nombre en la cabecera X-Nombre).
+  const subida = url.pathname.match(/^\/api\/proyectos\/([\w-]+)\/archivos\/subir$/);
+  if (subida && req.method === "POST") {
+    if (!mismoOrigen(req, "application/octet-stream")) return json(res, 403, { error: "Origen no permitido." });
+    try {
+      proyectoValido(subida[1]);
+      const nombre = decodeURIComponent(String(req.headers["x-nombre"] || ""));
+      const contenido = await leerBinario(req, MAX_ARCHIVO);
+      return json(res, 200, archivos.guardar(subida[1], nombre, contenido));
+    } catch (e) {
+      if (e.cerrar) res.setHeader("connection", "close");
+      return json(res, 400, { error: e.message });
+    }
+  }
+  // Descargar un archivo de un proyecto (siempre como descarga, nunca como página).
+  const descarga = url.pathname.match(/^\/api\/proyectos\/([\w-]+)\/archivos\/descargar$/);
+  if (descarga && req.method === "GET") {
+    try {
+      proyectoValido(descarga[1]);
+      const nombre = url.searchParams.get("nombre") || "";
+      const contenido = archivos.leer(descarga[1], nombre);
+      res.writeHead(200, {
+        "content-type": "application/octet-stream",
+        "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(nombre)}`,
+        "content-length": contenido.length,
+        "cache-control": "no-store",
+      });
+      return res.end(contenido);
+    } catch (e) {
+      return json(res, 404, { error: e.message });
+    }
   }
 
   if (url.pathname.startsWith("/api/")) {
@@ -252,8 +320,10 @@ servidor.on("error", (e) => {
 // Grossmart solo empieza a trabajar cuando tiene la puerta abierta.
 servidor.listen(puerto, host, () => {
   oficina.iniciar();
+  correo.iniciar();
   console.log(`\n  Grossmart abre sus puertas en http://${host}:${puerto}`);
   console.log(`  Ejecutor: ${ejecutor.descripcion}`);
+  console.log(`  Correo:   ${correo.activo() ? correo.cuentas().map((c) => `${c.nombre} (${c.usuario})${c.lista ? "" : " · falta conectar"}`).join(", ") : "sin cuentas configuradas"}`);
   console.log(`  Archivo:  ${DATOS}${soltado ? `  (usuario ${process.env.OFICINA_USUARIO})` : ""}\n`);
   if (abierta && !process.env.OFICINA_EN_LA_NUBE) {
     const ips = Object.values(networkInterfaces())

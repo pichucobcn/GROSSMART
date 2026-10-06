@@ -18,6 +18,8 @@ export class Oficina extends EventEmitter {
     this.almacen = almacen;
     this.ejecutor = ejecutor;
     this.enMarcha = new Set();
+    this.extensiones = {}; // tipos de trabajo añadidos desde fuera (p. ej. «correo»)
+    this.correoActivo = () => false;
     this.estadoEjecutor = { ok: null, detalle: "comprobando…" };
   }
 
@@ -311,10 +313,22 @@ export class Oficina extends EventEmitter {
     this.#cambio();
 
     let ultimoAviso = 0;
+    const extension = this.extensiones[t.tipo];
     try {
+      // Algunos trabajos preparan algo antes (leer el correo) y pueden no necesitar a Claude.
+      const previo = extension?.preparar ? await extension.preparar(t) : null;
+      if (previo?.saltar) {
+        t.resultado = previo.saltar;
+        t.extracto = extracto(previo.saltar, 200);
+        t.estado = "terminada";
+        t.terminadaEn = new Date().toISOString();
+        t.historial.push(this.#apunte("Nada que hacer."));
+        return;
+      }
       const { texto } = await this.ejecutor.ejecutar({
         id: t.id,
         tipoTrabajo: t.tipo,
+        herramientas: this.agente(t.agente)?.herramientas,
         prompt: this.#prompt(t),
         cwd: `${this.almacen.dirProyecto(t.proyecto)}/archivo`,
         alTexto: (trozo) => {
@@ -331,7 +345,10 @@ export class Oficina extends EventEmitter {
         },
       });
       if (t.estado !== "trabajando") return; // Grossman la cerró mientras tanto.
-      if (t.tipo === "plan") this.#aplicarPlan(t, texto);
+      if (extension) {
+        extension.aplicar(t, texto);
+        t.historial.push(this.#apunte(t.estado === "terminada" ? "Entrega su trabajo." : `Error: ${t.error}`));
+      } else if (t.tipo === "plan") this.#aplicarPlan(t, texto);
       else if (t.tipo === "importacion") this.#aplicarImportacion(t, texto);
       else this.#entregar(t, texto);
     } catch (e) {
@@ -578,6 +595,7 @@ export class Oficina extends EventEmitter {
 
   // ── los textos que reciben los agentes ─────────────────────────────────────
   #prompt(t) {
+    if (this.extensiones[t.tipo]) return this.extensiones[t.tipo].prompt(t);
     if (t.tipo === "plan") return this.#promptPlan(t);
     if (t.tipo === "importacion") return this.#promptImportacion(t);
     const agente = this.agente(t.agente);
@@ -882,9 +900,29 @@ export class Oficina extends EventEmitter {
     this.#cambio();
   }
 
+  // ── para las extensiones (Correspondencia) ─────────────────────────────────
+  registrarTipo(tipo, { preparar, prompt, aplicar }) {
+    this.extensiones[tipo] = { preparar, prompt, aplicar };
+  }
+
+  crearTarea(datos) {
+    const t = this.#nuevaTarea(datos);
+    this.#cambio();
+    this.bombear();
+    return t;
+  }
+
+  avisarCambio() {
+    this.#cambio();
+  }
+
   // ── utilidades ─────────────────────────────────────────────────────────────
   #nuevaTarea(datos) {
     const ahora = new Date().toISOString();
+    // Lo que se encarga a quien lleva el correo se hace con el correo delante.
+    if (datos.tipo === "tarea" && this.agente(datos.agente)?.correo && this.extensiones.correo && this.correoActivo()) {
+      datos = { ...datos, tipo: "correo", correo: { revision: false, refs: [] } };
+    }
     const t = {
       id: this.almacen.nuevoId("tarea"),
       tipo: "tarea",

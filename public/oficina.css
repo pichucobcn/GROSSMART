@@ -1486,3 +1486,102 @@ input[type="text"] {
   padding: 16px 20px;
   font-size: 0.88rem;
 }
+
+/* ── correo ───────────────────────────────────────────────────────────────── */
+.correo {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: #fbf6ea;
+  border: 1px solid #ddd0b4;
+  border-left: 5px solid var(--color-proyecto, #7a6a55);
+}
+
+.correo.sospechoso {
+  border-left-color: var(--rojo-ladrillo);
+  background: #fbefe8;
+}
+
+.correo-cabecera small {
+  color: var(--tinta-tenue);
+}
+
+.correo-asunto {
+  margin-top: 4px;
+  font-family: var(--letra-titulo);
+  font-size: 1.05rem;
+}
+
+.correo-resumen {
+  margin: 8px 0;
+  font-style: italic;
+}
+
+.correo-texto {
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--papel-claro);
+  border: 1px solid var(--linea);
+  font-family: var(--letra-maquina);
+  font-size: 0.82rem;
+}
+
+.propuestas {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.propuesta {
+  padding: 8px 0;
+  border-top: 1px dotted var(--linea);
+}
+
+.propuesta.cerrada {
+  opacity: 0.6;
+}
+
+.casilla-propuesta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.borrador {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0 26px;
+}
+
+.borrador label {
+  display: grid;
+  gap: 2px;
+  font-family: var(--letra-maquina);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+
+.borrador input {
+  font-family: var(--letra-texto);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--tinta);
+}
+
+.barra-aprobar {
+  position: sticky;
+  bottom: -40px;
+  padding: 12px 0;
+  background: linear-gradient(transparent, var(--papel-claro) 30%);
+}
+
+.pestanas button {
+  letter-spacing: 0.04em;
+  font-size: 0.66rem;
+}

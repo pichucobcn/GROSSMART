@@ -85,6 +85,30 @@ Todo está en **`config/oficina.config.mjs`**: proyectos, departamentos, agentes
 - **Nuevo empleado:** añadir una entrada a `AGENTES` (y su departamento, si es nuevo). Aparece su escritorio y Coordinación ya puede asignarle trabajo.
 - **Herramientas de los agentes:** `EJECUTOR.herramientas`. Por defecto solo `WebSearch` y `WebFetch`. Lo que no está en la lista no existe para ellos. Ver «Seguridad».
 
+## Correo (Secretaría)
+
+Amelia, de Secretaría, lleva el correo: lo lee **a las 9:00 y a las 15:00 (hora de Barcelona)** y cuando se le pide, lo ordena por proyecto, avisa de lo importante y de lo sospechoso, y propone acciones y borradores. **Nada se toca hasta que Grossman lo aprueba** en la pestaña *Correo*. Grossmart **no puede enviar ni borrar** correos: no tiene código para ello. Los borradores quedan en la carpeta de Borradores para revisarlos y enviarlos uno mismo.
+
+- Acciones posibles, siempre con visto bueno: etiquetar (Gmail: etiqueta «Grossmart/…»; Hotmail: carpeta), marcar como leído, archivar (sale de la bandeja, no se borra) y guardar borrador.
+- Adjuntos: archivos subidos a un proyecto (en su archivo, «Archivos del proyecto») o adjuntos de correos recibidos. Como mucho 20 MB por borrador.
+- Encargos concretos: en el expediente de Amelia («prepara un borrador para gestor@… con la factura de la luz»). Puede escribir solo a las personas del hilo o a las direcciones que Grossman escribe en su encargo.
+
+### Conectar Gmail
+1. En tu cuenta de Google, activa la **verificación en dos pasos** (myaccount.google.com → Seguridad).
+2. Crea una **contraseña de aplicación**: myaccount.google.com/apppasswords → nombre «Grossmart» → copia las 16 letras.
+3. En Railway → *Variables*: `GMAIL_USUARIO` = tu dirección de Gmail y `GMAIL_CLAVE_APP` = esas 16 letras.
+
+La contraseña de aplicación solo sirve para el correo y se revoca en esa misma página sin tocar tu contraseña de Google.
+
+### Conectar Hotmail / Outlook.com
+Microsoft ya no admite contraseñas de aplicación: se entra con su inicio de sesión oficial. Se hace una vez:
+1. Entra en **entra.microsoft.com** (o portal.azure.com) con tu cuenta de Microsoft → *Registros de aplicaciones* → *Nuevo registro*. Nombre: «Grossmart». Tipo de cuenta: *solo cuentas personales de Microsoft*. Sin URI de redirección.
+2. En la aplicación creada: *Autenticación* → **Permitir flujos de clientes públicos: Sí** → Guardar.
+3. *Permisos de API* → *Agregar un permiso* → *Microsoft Graph* → *Permisos delegados* → marca **IMAP.AccessAsUser.All** y **offline_access**.
+4. Copia el **Id. de aplicación (cliente)** de la página *Información general*.
+5. En Railway → *Variables*: `HOTMAIL_USUARIO` = tu dirección de Hotmail y `MICROSOFT_CLIENT_ID` = ese id.
+6. En Grossmart → pestaña *Correo* → **Conectar Hotmail**: te da un código para escribir en la web de Microsoft. Aceptas y queda conectada. El permiso se renueva solo y se guarda cifrado con `OFICINA_CLAVE` (si cambias esa clave, hay que volver a conectar).
+
 ## Seguridad
 
 Grossmart recibe órdenes y las convierte en trabajo de agentes, así que está pensado para que nadie más pueda usarlo y para que un agente no pueda ser engañado.
@@ -109,8 +133,15 @@ Grossmart recibe órdenes y las convierte en trabajo de agentes, así que está 
 **El servidor**
 - El contenedor no trabaja como administrador: arranca, se adueña de `/datos` y pasa al usuario `node`. Si no puede, no arranca.
 - Entradas comprobadas: tamaños máximos, tipos, colores y fechas validados, rutas de archivos encerradas en `public/`, peticiones raras que no tumban el servidor.
-- Dependencias: una sola (el puente ACP de Claude Code), con la versión fijada y el `package-lock`. Se instalan sin scripts (`--ignore-scripts`). `npm audit`: 0 vulnerabilidades.
+- Dependencias: el puente ACP de Claude Code y las tres del correo, con versiones fijadas (publicadas hace más de diez días) y el `package-lock`. Se instalan sin scripts (`--ignore-scripts`). `npm audit`: 0 vulnerabilidades.
 - Pruebas de ataque automáticas en `test/seguridad.test.mjs` (`npm test`).
+
+**El correo**
+- Amelia **no tiene ninguna herramienta**: no navega, no lee archivos y no puede enviar nada. Los correos le llegan como datos entre marcas aleatorias que un correo no puede imitar, con la instrucción de no obedecer nunca lo que digan.
+- Sus propuestas pasan por reglas fijas antes de guardarse: solo acciones permitidas, etiquetas saneadas, borradores solo a personas del hilo o a direcciones escritas por Grossman, adjuntos solo existentes y hasta 20 MB. Lo que no cumple se descarta y se explica.
+- Nada se ejecuta sin la aprobación de Grossman. No existe código para enviar ni para borrar.
+- Contraseñas y tokens del correo, solo en las variables de Railway. El token de Hotmail se guarda cifrado.
+- El texto de los correos se muestra siempre como texto, nunca como página (el HTML de un correo no se ejecuta).
 
 **Lo que te toca a ti**
 1. Una clave larga e inventada (por ejemplo, cuatro palabras al azar), que no uses en otro sitio.
@@ -145,10 +176,12 @@ server/ejecutor.mjs         ejecutores: ACP (Claude Code) y ensayo
 server/acp.mjs              cliente del Agent Client Protocol
 server/acceso.mjs           la puerta: clave, sesiones firmadas y freno a intentos
 server/privilegios.mjs      deja de ser root antes de trabajar (contenedores)
+server/archivos.mjs         archivos subidos a cada proyecto
+server/correo/              Secretaría: buzones IMAP, inicio de sesión de Microsoft y propuestas
 Dockerfile                  para instalarla en un servidor
 server/almacen.mjs          archivo en disco
 public/                     la planta (SVG) y los expedientes
 test/                       pruebas (node --test)
 ```
 
-Sin frameworks: Node y el navegador. La única dependencia es el puente ACP de Claude Code.
+Sin frameworks: Node y el navegador. Dependencias, con versión fijada: el puente ACP de Claude Code y, para el correo, `imapflow`, `mailparser` y `nodemailer` (solo para componer borradores; nunca envía).

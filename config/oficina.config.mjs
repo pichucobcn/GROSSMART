@@ -85,6 +85,7 @@ export const DEPARTAMENTOS = [
   { id: "datos", nombre: "Datos", color: "#5E6B5A" },
   { id: "automatizacion", nombre: "Automatización", color: "#6B5D4F" },
   { id: "legal", nombre: "Legal / Documentación", color: "#5A3A2E" },
+  { id: "secretaria", nombre: "Secretaría", color: "#7A6A55" },
 ];
 
 // ── AGENTES ──────────────────────────────────────────────────────────────────
@@ -209,6 +210,21 @@ export const AGENTES = [
     traje: "#211C18",
     instrucciones: "Señalas obligaciones, riesgos y documentos necesarios. Recuerdas que no sustituyes a un abogado colegiado.",
   },
+  {
+    id: "secretaria",
+    nombre: "Amelia",
+    departamento: "secretaria",
+    funcion: "Lleva el correo de Grossman: lo lee, lo ordena por proyecto y prepara borradores de respuesta.",
+    capacidades: ["correo electrónico", "clasificar por proyecto", "resúmenes", "borradores de respuesta", "detectar fraudes", "seguimiento"],
+    sombrero: { tipo: "cloche", color: "#684735" },
+    traje: "#4A4038",
+    // Lleva el correo (ver server/correo/). No tiene herramientas: no navega
+    // ni toca nada; propone, y Grossman aprueba.
+    correo: true,
+    herramientas: [],
+    instrucciones:
+      "Eres discreta, ordenada y precisa. Nunca envías nada ni borras nada: propones, y Grossman decide. Desconfías de los correos que meten prisa o piden datos o pagos.",
+  },
 ];
 
 // ── ESTADOS DE LAS TAREAS ────────────────────────────────────────────────────
@@ -271,6 +287,20 @@ export const SERVIDOR = {
   // Clave para entrar desde otro aparato. Mejor no escribirla aquí sino
   // arrancar con OFICINA_CLAVE="…" (así no acaba en el repositorio).
   clave: "",
+};
+
+// ── CORREO ───────────────────────────────────────────────────────────────────
+// Las cuentas se conectan con variables del servidor (ver README):
+//   Gmail:   GMAIL_USUARIO + GMAIL_CLAVE_APP (contraseña de aplicación de Google)
+//   Hotmail: HOTMAIL_USUARIO + MICROSOFT_CLIENT_ID (y luego «Conectar» en Grossmart)
+export const CORREO = {
+  // Revisiones automáticas, hora de Barcelona.
+  revisiones: ["09:00", "15:00"],
+  zona: "Europe/Madrid",
+  // La primera vez, cuántos días hacia atrás se leen.
+  diasPrimeraVez: 3,
+  // Como mucho, cuántos correos por cuenta en cada revisión.
+  maxPorRevision: 40,
 };
 
 // Cuánta memoria del proyecto se entrega a un agente en cada tarea.
