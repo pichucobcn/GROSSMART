@@ -106,6 +106,12 @@ function ejecutorSimulado() {
     descripcion: "Modo ensayo (sin Claude Code)",
     async ejecutar({ prompt, alTexto, tipoTrabajo }) {
       if (tipoTrabajo === "plan") return { texto: "(modo ensayo: Coordinación reparte por palabras clave)" };
+      if (tipoTrabajo === "importacion") {
+        const nombres = [...prompt.matchAll(/^- ([\w-]+): /gm)].map((m) => m[1]);
+        const texto = (prompt.split("== TEXTO DE GROSSMAN ==\n")[1] || "").split("\n== FIN DEL TEXTO ==")[0];
+        const proyectos = Object.fromEntries(nombres.filter((id) => texto.toLowerCase().includes(id.replace(/-/g, " "))).map((id) => [id, `(ensayo) Mencionado en el texto importado.`]));
+        return { texto: "```json\n" + JSON.stringify({ perfil: "(ensayo) Perfil de prueba.", proyectos, otros: "" }) + "\n```" };
+      }
       const tarea = (prompt.match(/== TU TAREA ==\n([^\n]+)/) || [])[1] || "el encargo";
       const texto = [
         `# ${tarea.slice(0, 90)}`,

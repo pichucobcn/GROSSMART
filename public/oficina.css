@@ -1444,3 +1444,45 @@ input[type="text"] {
   font-style: italic;
   color: var(--rojo-ladrillo);
 }
+
+/* ── fichas editables y «Sobre Grossman» ──────────────────────────────────── */
+.titulo-con-boton {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chip-capacidad {
+  cursor: default;
+  border-left-color: var(--verde-biblioteca);
+}
+
+.quitar-capacidad {
+  margin-left: 4px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--rojo-ladrillo);
+  cursor: pointer;
+}
+
+.carpeta-perfil::before {
+  background: var(--madera);
+}
+
+.pasos {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.pasos > li {
+  margin-bottom: 16px;
+}
+
+.pregunta-claude {
+  white-space: pre-wrap;
+  padding: 16px 20px;
+  font-size: 0.88rem;
+}

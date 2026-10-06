@@ -89,12 +89,24 @@ setInterval(() => {
 }, 25_000).unref();
 
 // ── rutas ────────────────────────────────────────────────────────────────────
+const NOMBRES_HERRAMIENTAS = {
+  WebSearch: "Buscar en la web",
+  WebFetch: "Leer páginas web",
+  Read: "Leer archivos del proyecto",
+  Write: "Escribir archivos del proyecto",
+  Edit: "Editar archivos del proyecto",
+  Glob: "Buscar archivos",
+  Grep: "Buscar dentro de archivos",
+};
+
 function configPublica() {
   return {
     proyectos: oficina.proyectos(),
     proyectoGeneral: config.PROYECTO_GENERAL.id,
     departamentos: config.DEPARTAMENTOS,
-    agentes: config.AGENTES,
+    agentes: oficina.agentes(),
+    // Herramientas reales de los agentes (iguales para todos), con nombre legible.
+    herramientas: (config.EJECUTOR.herramientas || []).map((h) => NOMBRES_HERRAMIENTAS[h] || h),
     estados: config.ESTADOS,
     prioridades: config.PRIORIDADES,
     paleta: config.PALETA,
@@ -109,6 +121,11 @@ const rutas = [
   ["POST", /^\/api\/tareas\/([\w-]+)\/accion$/, ([id], cuerpo) => oficina.accion(id, cuerpo.accion, cuerpo)],
   ["POST", /^\/api\/proyectos$/, (_, cuerpo) => oficina.abrirProyecto(cuerpo)],
   ["GET", /^\/api\/proyectos\/([\w-]+)\/memoria$/, ([id]) => oficina.memoria(id)],
+  ["POST", /^\/api\/agentes\/([\w-]+)$/, ([id], cuerpo) => oficina.editarAgente(id, cuerpo)],
+  ["POST", /^\/api\/agentes\/([\w-]+)\/restablecer$/, ([id]) => oficina.restablecerAgente(id)],
+  ["GET", /^\/api\/perfil$/, () => oficina.perfil()],
+  ["POST", /^\/api\/perfil$/, (_, cuerpo) => oficina.editarPerfil(cuerpo)],
+  ["POST", /^\/api\/importar$/, (_, cuerpo) => oficina.importar(cuerpo)],
   ["POST", /^\/api\/proyectos\/([\w-]+)\/memoria$/, ([id], cuerpo) => oficina.editarMemoria(id, cuerpo)],
 ];
 

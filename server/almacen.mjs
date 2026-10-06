@@ -2,6 +2,8 @@
 //
 //   datos/oficina.json                    contadores y encargos
 //   datos/proyectos.json                  proyectos abiertos desde Grossmart
+//   datos/agentes.json                    fichas de los empleados editadas desde Grossmart
+//   datos/perfil.json                     «Sobre Grossman»: lo que todos los agentes saben de él
 //   datos/proyectos/<id>/tareas.json      tareas de ese proyecto
 //   datos/proyectos/<id>/memoria.json     contexto, decisiones, instrucciones, notas
 //   datos/proyectos/<id>/documentos/      resultados entregados (.md)
@@ -20,6 +22,8 @@ export class Almacen {
     this.contadores = oficina.contadores;
     this.encargos = oficina.encargos;
     this.proyectosExtra = this.#leer("proyectos.json", []);
+    this.fichas = this.#leer("agentes.json", {});
+    this.perfil = this.#leer("perfil.json", { texto: "" });
     this.tareas = new Map();
     this.memorias = new Map();
     this.sucios = new Set();
@@ -46,6 +50,14 @@ export class Almacen {
   guardarProyectoExtra(proyecto) {
     this.proyectosExtra.push(proyecto);
     this.#escribir("proyectos.json", this.proyectosExtra);
+  }
+
+  guardarFichas() {
+    this.#escribir("agentes.json", this.fichas);
+  }
+
+  guardarPerfil() {
+    this.#escribir("perfil.json", this.perfil);
   }
 
   // ── tareas ──

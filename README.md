@@ -80,6 +80,8 @@ Pendiente · Asignada · Trabajando · Esperando · Terminada · Error. Una tare
 Todo está en **`config/oficina.config.mjs`**: proyectos, departamentos, agentes (nombre, función, capacidades, sombrero y traje), estados, prioridades, ejecutor y servidor. La planta se dibuja a partir de ahí.
 
 - **Nuevo proyecto:** añadir una entrada a `PROYECTOS`, o pulsar «Abrir expediente nuevo» en la pestaña *Proyectos* (se guarda en `datos/proyectos.json`). Aparece su archivador en la planta.
+- **Fichas de los empleados desde Grossmart:** en el expediente de cada uno, «Editar ficha» cambia el nombre, el departamento, la función, lo que sabe hacer (habilidades que se añaden y se quitan) y cómo trabaja. Se guarda en `datos/agentes.json`, por encima de la configuración, y «Volver a la ficha original» lo deshace.
+- **Sobre Grossman:** pestaña *Proyectos* → «Sobre Grossman». Es una ficha que todos los agentes leen antes de cada trabajo. Desde ahí se puede **traer lo que Claude ya sabe de ti**: Grossmart da una pregunta para hacerle a Claude en claude.ai, se pega la respuesta y Coordinación la reparte entre esa ficha y el contexto de cada proyecto (sin mezclar proyectos).
 - **Nuevo empleado:** añadir una entrada a `AGENTES` (y su departamento, si es nuevo). Aparece su escritorio y Coordinación ya puede asignarle trabajo.
 - **Herramientas de los agentes:** `EJECUTOR.herramientas`. Por defecto solo `WebSearch` y `WebFetch`. Lo que no está en la lista no existe para ellos. Ver «Seguridad».
 

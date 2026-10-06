@@ -196,6 +196,10 @@
 
   function vistaProyectos() {
     return (
+      `<div class="carpeta-proyecto carpeta-perfil" data-accion="perfil" data-nombre="Sobre Grossman" style="--color-proyecto:#4A3024" tabindex="0" role="button">
+        <p><em>Lo que todos los empleados saben de usted antes de trabajar.</em></p>
+        <p class="ficha-meta">Aquí también puede traer lo que Claude ya sabe de usted y de sus proyectos.</p>
+      </div>` +
       ESTADO.proyectos
         .map((p) => {
           const suyas = ESTADO.tareas.filter((t) => t.proyecto === p.id && t.tipo === "tarea");
@@ -283,10 +287,40 @@
         </div>
         <div class="vivo-sello"></div>
       </header>
-      <dl class="campos">
-        <div><dt>Departamento</dt><dd>${esc(dep.nombre)}</dd></div>
-        <div class="ancho"><dt>Capacidades</dt><dd>${esc((a.capacidades || []).join(", "))}</dd></div>
-      </dl>
+      <section class="bloque">
+        <h3 class="titulo-con-boton">Ficha <button class="boton boton-discreto" id="editar-ficha" type="button">Editar ficha</button></h3>
+        <div id="ficha-vista">
+          <dl class="campos">
+            <div><dt>Departamento</dt><dd>${esc(dep.nombre)}</dd></div>
+            <div class="ancho"><dt>Sabe hacer</dt><dd>${(a.capacidades || []).length ? `<div class="chips">${a.capacidades.map((c) => `<span class="chip chip-capacidad">${esc(c)}</span>`).join("")}</div>` : "—"}</dd></div>
+            <div class="ancho"><dt>Cómo trabaja</dt><dd>${esc(a.instrucciones || "—")}</dd></div>
+            <div class="ancho"><dt>Herramientas</dt><dd>${esc((CONFIG.herramientas || []).join(" · ") || "Solo texto")} <small class="id-exp">(iguales para todos; se cambian en la configuración)</small></dd></div>
+          </dl>
+        </div>
+        <form id="ficha-form" class="formulario-encargo" hidden>
+          <div class="fila-campos">
+            <label style="flex:1">Nombre <input type="text" name="nombre" maxlength="40" required value="${esc(a.nombre)}"></label>
+            <label>Departamento
+              <select name="departamento">${CONFIG.departamentos.map((d) => `<option value="${d.id}" ${d.id === a.departamento ? "selected" : ""}>${esc(d.nombre)}</option>`).join("")}</select>
+            </label>
+          </div>
+          <div class="fila-campos"><label style="flex:1">Función (una frase) <input type="text" name="funcion" maxlength="300" value="${esc(a.funcion || "")}"></label></div>
+          <div class="fila-campos" style="display:block">
+            <label>Sabe hacer</label>
+            <div class="chips" id="ficha-capacidades" style="margin:6px 0 8px"></div>
+            <div class="agregar"><input type="text" id="nueva-capacidad" maxlength="60" placeholder="Nueva habilidad: por ejemplo «TikTok» o «subvenciones culturales»" aria-label="Nueva habilidad"><button class="boton" type="button" id="anadir-capacidad">Añadir</button></div>
+          </div>
+          <div class="fila-campos" style="display:block">
+            <label>Cómo trabaja (sus instrucciones de siempre)</label>
+            <textarea name="instrucciones" maxlength="3000" style="min-height:90px">${esc(a.instrucciones || "")}</textarea>
+          </div>
+          <div class="acciones">
+            ${a.editado ? `<button class="boton boton-discreto" type="button" id="restablecer-ficha">Volver a la ficha original</button>` : ""}
+            <button class="boton" type="button" id="cancelar-ficha">Cancelar</button>
+            <button class="boton boton-principal" type="submit">Guardar ficha</button>
+          </div>
+        </form>
+      </section>
       <div class="vivo"></div>
       <section class="bloque">
         <h3>${a.coordinador ? "Encargo para Coordinación" : "Encargo"}</h3>
@@ -347,6 +381,71 @@
       },
     });
 
+    // Edición de la ficha.
+    let capacidades = [...(a.capacidades || [])];
+    const pintarCapacidades = () => {
+      $("#ficha-capacidades").innerHTML = capacidades.length
+        ? capacidades.map((c, i) => `<span class="chip chip-capacidad">${esc(c)} <button type="button" class="quitar-capacidad" data-i="${i}" aria-label="Quitar ${esc(c)}">×</button></span>`).join("")
+        : `<span class="vacio">Sin habilidades anotadas.</span>`;
+    };
+    const anadir = () => {
+      const campo = $("#nueva-capacidad");
+      const valor = campo.value.trim();
+      if (valor && !capacidades.some((c) => c.toLowerCase() === valor.toLowerCase())) capacidades.push(valor);
+      campo.value = "";
+      pintarCapacidades();
+      campo.focus();
+    };
+    pintarCapacidades();
+    $("#editar-ficha").addEventListener("click", () => {
+      $("#ficha-vista").hidden = true;
+      $("#ficha-form").hidden = false;
+      $("#editar-ficha").hidden = true;
+    });
+    $("#cancelar-ficha").addEventListener("click", () => abrirAgente(id));
+    $("#anadir-capacidad").addEventListener("click", anadir);
+    $("#nueva-capacidad").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        anadir();
+      }
+    });
+    $("#ficha-capacidades").addEventListener("click", (ev) => {
+      const b = ev.target.closest(".quitar-capacidad");
+      if (!b) return;
+      capacidades.splice(Number(b.dataset.i), 1);
+      pintarCapacidades();
+    });
+    $("#restablecer-ficha")?.addEventListener("click", async () => {
+      if (!confirm(`¿Devolver a ${a.nombre} su ficha original?`)) return;
+      try {
+        await api(`/api/agentes/${encodeURIComponent(id)}/restablecer`, {});
+        await recargarConfig();
+        aviso("Ficha original restablecida.");
+        abrirAgente(id);
+      } catch (e) {
+        aviso(e.message, true);
+      }
+    });
+    $("#ficha-form").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = ev.target;
+      try {
+        const nuevo = await api(`/api/agentes/${encodeURIComponent(id)}`, {
+          nombre: f.nombre.value,
+          departamento: f.departamento.value,
+          funcion: f.funcion.value,
+          instrucciones: f.instrucciones.value,
+          capacidades,
+        });
+        await recargarConfig();
+        aviso(`Ficha de ${nuevo.nombre} guardada.`);
+        abrirAgente(id);
+      } catch (e) {
+        aviso(e.message, true);
+      }
+    });
+
     $("#form-agente").addEventListener("submit", async (ev) => {
       ev.preventDefault();
       const f = ev.target;
@@ -401,7 +500,7 @@
         if (!t) return;
         const a = agente(t.agente);
         const enc = t.encargo && ESTADO.encargos.find((e) => e.id === t.encargo);
-        const tipo = { plan: "Plan de Coordinación", informe: "Informe consolidado", tarea: "Tarea" }[t.tipo];
+        const tipo = { plan: "Plan de Coordinación", informe: "Informe consolidado", tarea: "Tarea", importacion: "Archivo de Grossman" }[t.tipo];
         $(".vivo-rotulo").textContent = `Expediente ${t.id} · ${tipo}`;
         $(".vivo-titulo").textContent = t.titulo;
         $(".vivo-sello").innerHTML = selloTarea(t).replace("sello", "sello sello-grande");
@@ -461,7 +560,7 @@
 
         const botones = [];
         if (["pendiente", "error"].includes(t.estado)) botones.push(`<button class="boton boton-principal" data-accion-tarea="ejecutar">${t.estado === "error" ? "Volver a intentar" : "Ponerla en marcha"}</button>`);
-        if (t.estado === "terminada" && t.tipo !== "plan") botones.push(`<button class="boton" data-accion-tarea="ejecutar">Rehacer</button>`);
+        if (t.estado === "terminada" && t.tipo !== "plan" && t.tipo !== "importacion") botones.push(`<button class="boton" data-accion-tarea="ejecutar">Rehacer</button>`);
         if (abierta(t)) botones.push(`<button class="boton" data-accion-tarea="terminar">Dar por terminada</button>`, `<button class="boton boton-rojo" data-accion-tarea="descartar">Descartar</button>`);
         $(".vivo-acciones").innerHTML = botones.length ? `<div class="acciones" style="margin-top:18px">${botones.join("")}</div>` : "";
 
@@ -636,6 +735,95 @@
     });
   }
 
+  function preguntaParaClaude() {
+    const nombres = ESTADO.proyectos.filter((p) => p.id !== CONFIG.proyectoGeneral).map((p) => p.nombre);
+    return [
+      "Voy a pasarle a mi equipo de trabajo todo lo que sabes de mí. Escríbeme, en texto, todo lo que recuerdas de mí y de mis proyectos y negocios.",
+      "",
+      "Empieza con un apartado «Sobre mí»: quién soy, a qué me dedico, cómo trabajo, qué prefiero, mi estilo y mi tono.",
+      `Después, un apartado por cada proyecto (${nombres.join(", ")} y cualquier otro que conozcas): qué es, en qué punto está, personas implicadas, cifras, decisiones tomadas, tono de comunicación y cosas pendientes.`,
+      "",
+      "No inventes nada: si no sabes algo, no lo pongas. Sé concreto y completo.",
+    ].join("\n");
+  }
+
+  function abrirPerfil() {
+    const carpeta = abrirCarpeta(
+      `<header class="ficha-tecnica" style="grid-template-columns:1fr">
+        <div>
+          <p class="rotulo">Expediente del jefe</p>
+          <h2 id="carpeta-titulo">Sobre Grossman</h2>
+          <p class="funcion">Todo lo que haya aquí lo leen todos los empleados antes de cada trabajo, sea del proyecto que sea.</p>
+        </div>
+      </header>
+      <section class="bloque">
+        <h3>Traer lo que Claude sabe de usted</h3>
+        <p style="margin-top:0">Los empleados de Grossmart no pueden leer la memoria de su cuenta de claude.ai. Pero Claude puede escribirla, y Coordinación la reparte: lo general va a esta ficha y lo de cada proyecto, a su archivo.</p>
+        <ol class="pasos">
+          <li>
+            <p>Abra <strong>claude.ai</strong>, empiece un chat nuevo y hágale esta pregunta. Si tiene <em>Proyectos</em> en Claude, hágasela también dentro de cada uno y traiga cada respuesta.</p>
+            <div class="documento pregunta-claude" id="pregunta-claude"></div>
+            <div class="acciones" style="justify-content:flex-start"><button class="boton" type="button" id="copiar-pregunta">Copiar la pregunta</button></div>
+          </li>
+          <li>
+            <p>Pegue aquí la respuesta completa de Claude:</p>
+            <form id="form-importar">
+              <textarea class="campo-texto" name="texto" required placeholder="Pegue aquí la respuesta de Claude…" style="min-height:160px"></textarea>
+              <div class="acciones"><button class="boton boton-principal" type="submit">Entregar a Coordinación</button></div>
+            </form>
+          </li>
+        </ol>
+      </section>
+      <section class="bloque">
+        <h3>Ficha de Grossman</h3>
+        <form id="form-perfil">
+          <textarea class="campo-texto" name="texto" style="min-height:180px" placeholder="Quién es, cómo trabaja, qué prefiere, su tono… (se rellena sola al traer lo que sabe Claude, y se puede corregir a mano)"></textarea>
+          <div class="acciones"><button class="boton" type="submit">Guardar ficha</button></div>
+        </form>
+      </section>`,
+      {},
+    );
+    $("#pregunta-claude").textContent = preguntaParaClaude();
+    api("/api/perfil")
+      .then((p) => ($("#form-perfil").texto.value = p.texto || ""))
+      .catch((e) => aviso(e.message, true));
+
+    carpeta.querySelector("#copiar-pregunta").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(preguntaParaClaude());
+        aviso("Pregunta copiada. Péguela en claude.ai.");
+      } catch {
+        const rango = document.createRange();
+        rango.selectNodeContents($("#pregunta-claude"));
+        getSelection().removeAllRanges();
+        getSelection().addRange(rango);
+        aviso("Seleccionada: cópiela con Ctrl + C.");
+      }
+    });
+    carpeta.querySelector("#form-importar").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const boton = ev.target.querySelector("[type=submit]");
+      boton.disabled = true;
+      try {
+        const t = await api("/api/importar", { texto: ev.target.texto.value });
+        aviso("Coordinación está ordenando lo que sabe Claude de usted.");
+        abrirTarea(t.id);
+      } catch (e) {
+        aviso(e.message, true);
+        boton.disabled = false;
+      }
+    });
+    carpeta.querySelector("#form-perfil").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        await api("/api/perfil", { texto: ev.target.texto.value });
+        aviso("Ficha de Grossman guardada.");
+      } catch (e) {
+        aviso(e.message, true);
+      }
+    });
+  }
+
   function abrirNuevoProyecto() {
     abrirCarpeta(
       `<header class="ficha-tecnica" style="grid-template-columns:1fr"><div><p class="rotulo">Archivo de proyectos</p><h2 id="carpeta-titulo">Expediente nuevo</h2>
@@ -673,6 +861,7 @@
     else if (el.dataset.agente) abrirAgente(el.dataset.agente);
     else if (el.dataset.proyecto) abrirProyecto(el.dataset.proyecto);
     else if (el.dataset.accion === "nuevo-proyecto") abrirNuevoProyecto();
+    else if (el.dataset.accion === "perfil") abrirPerfil();
     else if (el.dataset.vista) cambiarPestana(el.dataset.vista);
   }
 

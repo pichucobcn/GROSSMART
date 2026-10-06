@@ -162,3 +162,48 @@ test("el informe consolidado se entrega aunque deje una decisión pendiente", as
   await esperar(() => almacen.encargo(e.id).estado === "entregado");
   assert.match(almacen.encargo(e.id).informe, /Decisión pendiente de Grossman:\*\* ¿Lanzamos el lunes\?/);
 });
+
+test("la ficha de un empleado se edita, se guarda y llega a sus encargos", async () => {
+  const { oficina, almacen, ejecutor, dir } = montar(() => "# ok");
+  oficina.editarAgente("marketing", { nombre: "Bruno Vidal", capacidades: ["TikTok", "tiktok", " Prensa "], instrucciones: "Siempre con cifras." });
+  const a = oficina.agente("marketing");
+  assert.equal(a.nombre, "Bruno Vidal");
+  assert.deepEqual(a.capacidades, ["TikTok", "Prensa"], "sin repetidas ni espacios");
+  assert.throws(() => oficina.editarAgente("marketing", { departamento: "inventado" }), /departamento/);
+  assert.throws(() => oficina.editarAgente("marketing", { nombre: "" }), /nombre/);
+  assert.throws(() => oficina.editarAgente("nadie", { nombre: "X" }), /no trabaja/);
+
+  const t = oficina.asignarTarea({ agente: "marketing", texto: "Campaña", proyecto: "isla" });
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  assert.match(ejecutor.recibidos.at(-1).prompt, /Eres Bruno Vidal/);
+  assert.match(ejecutor.recibidos.at(-1).prompt, /TikTok, Prensa/);
+  assert.match(ejecutor.recibidos.at(-1).prompt, /Siempre con cifras/);
+
+  const otra = montar(() => "# ok", dir);
+  assert.equal(otra.oficina.agente("marketing").nombre, "Bruno Vidal", "sobrevive a un reinicio");
+  otra.oficina.restablecerAgente("marketing");
+  assert.equal(otra.oficina.agente("marketing").nombre, "Bruno");
+});
+
+test("lo que Claude sabe de Grossman se reparte entre su ficha y cada proyecto", async () => {
+  const { oficina, almacen, ejecutor } = montar(({ tipoTrabajo }) =>
+    tipoTrabajo === "importacion"
+      ? '```json\n{"perfil":"Grossman es directo y odia los rodeos.","proyectos":{"pichuco":"Pizzería en Barcelona, masa de 72 horas.","barnabeat":"Festival en junio.","inventado":"no debe guardarse"},"otros":"Un libro de recetas."}\n```'
+      : "# ok",
+  );
+  const t = oficina.importar({ texto: "Sobre mí: … Pichuco: … Barnabeat: …" });
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  assert.match(oficina.perfil().texto, /directo/);
+  assert.match(almacen.memoria("pichuco").contexto, /72 horas/);
+  assert.match(almacen.memoria("barnabeat").contexto, /junio/);
+  assert.equal(almacen.memoria("isla").contexto, "");
+  assert.match(almacen.tarea(t.id).resultado, /libro de recetas/);
+
+  // A partir de ahora, todos los agentes lo saben, y cada uno solo su proyecto.
+  const t2 = oficina.asignarTarea({ agente: "contenido", texto: "Texto para Instagram", proyecto: "pichuco" });
+  await esperar(() => almacen.tarea(t2.id).estado === "terminada");
+  const prompt = ejecutor.recibidos.at(-1).prompt;
+  assert.match(prompt, /QUIÉN ES GROSSMAN[\s\S]*odia los rodeos/);
+  assert.match(prompt, /72 horas/);
+  assert.doesNotMatch(prompt, /Festival en junio/);
+});
