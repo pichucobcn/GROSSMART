@@ -4,7 +4,7 @@
 #   OFICINA_CLAVE            clave para entrar (12 caracteres o más)
 #   CLAUDE_CODE_OAUTH_TOKEN  la llave de tu suscripción (`claude setup-token`)
 # Disco persistente montado en /datos (encargos, tareas, memoria).
-FROM node:22-slim
+FROM node:25-slim
 
 WORKDIR /app
 COPY package.json package-lock.json ./
