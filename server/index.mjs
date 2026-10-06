@@ -102,6 +102,8 @@ const servidor = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === "/salud") return json(res, 200, { ok: true });
+
   if (url.pathname.startsWith("/api/")) {
     // Solo peticiones de la propia oficina (evita que otra web abierta en el
     // navegador envíe encargos a este servidor local).
@@ -133,6 +135,11 @@ const servidor = http.createServer(async (req, res) => {
 
 const puerto = Number(process.env.PORT || config.SERVIDOR.puerto);
 const host = process.argv.includes("--movil") ? "0.0.0.0" : process.env.HOST || config.SERVIDOR.host;
+const abierta = host !== "127.0.0.1" && host !== "localhost";
+if (abierta && !puerta.conClave) {
+  console.error(`\n  La oficina no se abre a la red sin clave. Arranque con OFICINA_CLAVE="…".\n`);
+  process.exit(1);
+}
 servidor.on("error", (e) => {
   console.error(e.code === "EADDRINUSE" ? `\n  El puerto ${puerto} ya está ocupado: ¿la oficina ya está abierta en otra ventana?\n` : e);
   process.exit(1);
@@ -143,18 +150,14 @@ servidor.listen(puerto, host, () => {
   console.log(`\n  LA OFICINA abre sus puertas en http://${host}:${puerto}`);
   console.log(`  Ejecutor: ${ejecutor.descripcion}`);
   console.log(`  Archivo:  ${DATOS}\n`);
-  if (host !== "127.0.0.1" && host !== "localhost") {
+  if (abierta && !process.env.OFICINA_EN_LA_NUBE) {
     const ips = Object.values(networkInterfaces())
       .flat()
       .filter((i) => i && i.family === "IPv4" && !i.internal)
       .map((i) => i.address);
-    if (puerta.conClave) {
-      console.log("  Desde el móvil (misma wifi):");
-      for (const ip of ips) console.log(`    http://${ip}:${puerto}`);
-      console.log("");
-    } else {
-      console.log("  Aviso: la oficina no tiene clave (OFICINA_CLAVE), así que solo se abre desde este ordenador.\n");
-    }
+    console.log("  Desde el móvil (misma wifi):");
+    for (const ip of ips) console.log(`    http://${ip}:${puerto}`);
+    console.log("");
   }
 });
 

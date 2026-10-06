@@ -10,7 +10,7 @@ const LOCALES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const COOKIE = "oficina_llave";
 
 // Lo que se puede servir sin clave: la propia página de entrada y los iconos.
-const LIBRES = new Set(["/entrar", "/oficina.css", "/manifest.webmanifest", "/icono.svg", "/icono-192.png", "/icono-512.png", "/icono-apple.png", "/sombrero.svg"]);
+const LIBRES = new Set(["/entrar", "/salud", "/oficina.css", "/manifest.webmanifest", "/icono.svg", "/icono-192.png", "/icono-512.png", "/icono-apple.png", "/sombrero.svg"]);
 
 export function crearPuerta(clave) {
   const llave = clave ? createHash("sha256").update(`la-oficina:${clave}`).digest("hex") : null;
@@ -61,7 +61,7 @@ export function crearPuerta(clave) {
       if (claveCorrecta(intento)) {
         res.writeHead(303, {
           location: "/",
-          "set-cookie": `${COOKIE}=${llave}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`,
+          "set-cookie": `${COOKIE}=${llave}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${req.headers["x-forwarded-proto"] === "https" ? "; Secure" : ""}`,
         });
         res.end();
       } else {

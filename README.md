@@ -34,9 +34,23 @@ Solo tus aparatos ven esa dirección. No uses `tailscale funnel`, que la publica
 ```bash
 OFICINA_CLAVE="una-clave-larga" npm run movil
 ```
-La consola muestra la dirección para el móvil (por ejemplo `http://192.168.1.20:4321`). La primera vez pide la clave; después la recuerda. Sin `OFICINA_CLAVE`, la oficina no se abre a otros aparatos.
+La consola muestra la dirección para el móvil (por ejemplo `http://192.168.1.20:4321`). La primera vez pide la clave; después la recuerda. Sin `OFICINA_CLAVE` no arranca en este modo.
 
 **Como app.** Con la oficina abierta en el móvil: en iPhone, Safari → Compartir → «Añadir a pantalla de inicio»; en Android, Chrome → menú → «Añadir a pantalla de inicio». Aparece el icono del sombrero y se abre a pantalla completa.
+
+## En la nube (sin depender de tu ordenador)
+
+La Oficina puede vivir en un servidor que esté siempre encendido. Los agentes siguen usando **tu suscripción de Claude**: nada de API de pago. Solo se paga el servidor (unos 5 € al mes).
+
+1. **La llave de tu suscripción.** En tu ordenador, con Claude Code instalado: `claude setup-token`. Inicia sesión en el navegador y copia el código que empieza por `sk-ant-oat…`. Es como una contraseña: no la compartas ni la subas al repositorio.
+2. **El servidor.** Cualquier servicio que ejecute un `Dockerfile` y tenga disco persistente. Ejemplo con [Railway](https://railway.com):
+   - *New Project → Deploy from GitHub repo* → este repositorio. En *Settings → Source*, carpeta raíz: `oficina`.
+   - *Variables*: `OFICINA_CLAVE` (la clave para entrar) y `CLAUDE_CODE_OAUTH_TOKEN` (la llave del paso 1).
+   - *Volume*: añadir uno montado en `/datos`. Ahí se guardan encargos, tareas y memoria. Sin él, se pierden en cada actualización.
+   - *Settings → Networking → Generate Domain*. Esa dirección (https) es tu oficina.
+3. Abre la dirección en el móvil, escribe la clave y añádela a la pantalla de inicio.
+
+Sin `OFICINA_CLAVE`, la oficina se niega a arrancar abierta a la red. La comprobación de salud está en `/salud`.
 
 ## Cómo funciona
 
@@ -91,6 +105,7 @@ server/oficina.mjs          Coordinación: plan, reparto, cola, prompts, memoria
 server/ejecutor.mjs         ejecutores: ACP (Claude Code) y ensayo
 server/acp.mjs              cliente del Agent Client Protocol
 server/acceso.mjs           la puerta: clave para entrar desde otro aparato
+Dockerfile                  para instalarla en un servidor
 server/almacen.mjs          archivo en disco
 public/                     la planta (SVG) y los expedientes
 test/                       pruebas (node --test)
