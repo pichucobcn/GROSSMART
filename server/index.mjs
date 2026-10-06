@@ -1,11 +1,14 @@
 // LA OFICINA · servidor
-//   node server/index.mjs        → http://127.0.0.1:4321
+//   node server/index.mjs          → http://127.0.0.1:4321
+//   node server/index.mjs --movil  → también desde el móvil (wifi), con clave
 
 import { createReadStream, existsSync, statSync } from "node:fs";
 import http from "node:http";
+import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as config from "../config/oficina.config.mjs";
+import { crearPuerta } from "./acceso.mjs";
 import { Almacen } from "./almacen.mjs";
 import { crearEjecutor } from "./ejecutor.mjs";
 import { Oficina } from "./oficina.mjs";
@@ -17,6 +20,7 @@ const DATOS = process.env.OFICINA_DATOS || path.join(RAIZ, "datos");
 const almacen = new Almacen(DATOS);
 const ejecutor = crearEjecutor(config.EJECUTOR);
 const oficina = new Oficina({ config, almacen, ejecutor });
+const puerta = crearPuerta(process.env.OFICINA_CLAVE || config.SERVIDOR.clave);
 
 const TIPOS = {
   ".html": "text/html; charset=utf-8",
@@ -25,6 +29,8 @@ const TIPOS = {
   ".mjs": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
+  ".png": "image/png",
 };
 
 // ── avisos en vivo (Server-Sent Events) ──────────────────────────────────────
@@ -86,6 +92,7 @@ function json(res, codigo, datos) {
 
 const servidor = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://oficina");
+  if (!(await puerta.atender(req, res, url.pathname))) return;
 
   if (url.pathname === "/api/eventos") {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
@@ -125,7 +132,7 @@ const servidor = http.createServer(async (req, res) => {
 });
 
 const puerto = Number(process.env.PORT || config.SERVIDOR.puerto);
-const host = process.env.HOST || config.SERVIDOR.host;
+const host = process.argv.includes("--movil") ? "0.0.0.0" : process.env.HOST || config.SERVIDOR.host;
 servidor.on("error", (e) => {
   console.error(e.code === "EADDRINUSE" ? `\n  El puerto ${puerto} ya está ocupado: ¿la oficina ya está abierta en otra ventana?\n` : e);
   process.exit(1);
@@ -136,6 +143,19 @@ servidor.listen(puerto, host, () => {
   console.log(`\n  LA OFICINA abre sus puertas en http://${host}:${puerto}`);
   console.log(`  Ejecutor: ${ejecutor.descripcion}`);
   console.log(`  Archivo:  ${DATOS}\n`);
+  if (host !== "127.0.0.1" && host !== "localhost") {
+    const ips = Object.values(networkInterfaces())
+      .flat()
+      .filter((i) => i && i.family === "IPv4" && !i.internal)
+      .map((i) => i.address);
+    if (puerta.conClave) {
+      console.log("  Desde el móvil (misma wifi):");
+      for (const ip of ips) console.log(`    http://${ip}:${puerto}`);
+      console.log("");
+    } else {
+      console.log("  Aviso: la oficina no tiene clave (OFICINA_CLAVE), así que solo se abre desde este ordenador.\n");
+    }
+  }
 });
 
 function cerrar() {

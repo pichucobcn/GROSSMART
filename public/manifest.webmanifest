@@ -1,0 +1,17 @@
+{
+  "name": "La Oficina",
+  "short_name": "La Oficina",
+  "description": "La mente de Grossman: la agencia de empleados de IA.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#4A3024",
+  "theme_color": "#4A3024",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

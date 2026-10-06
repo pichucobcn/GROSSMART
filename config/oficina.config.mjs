@@ -257,8 +257,12 @@ export const EJECUTOR = {
 
 export const SERVIDOR = {
   puerto: 4321,
-  // Solo esta máquina. Cambiar a "0.0.0.0" para abrirla en la red local.
+  // "127.0.0.1": solo este ordenador (y Tailscale con `tailscale serve`).
+  // "0.0.0.0": también otros aparatos de la wifi, como el móvil (o `npm run movil`).
   host: "127.0.0.1",
+  // Clave para entrar desde otro aparato. Mejor no escribirla aquí sino
+  // arrancar con OFICINA_CLAVE="…" (así no acaba en el repositorio).
+  clave: "",
 };
 
 // Cuánta memoria del proyecto se entrega a un agente en cada tarea.

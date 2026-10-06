@@ -1241,7 +1241,12 @@ input[type="text"] {
 }
 
 @media (max-width: 720px) {
+  body {
+    font-size: 16px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
   .membrete {
+    padding-top: max(18px, env(safe-area-inset-top));
     flex-direction: column;
     align-items: flex-start;
     padding: 18px 16px 12px;
@@ -1250,8 +1255,38 @@ input[type="text"] {
     text-align: left;
   }
   .encargo-general {
+    position: static;
     grid-template-columns: 1fr;
     margin: 12px 16px 0;
+  }
+  #planta {
+    min-width: 0;
+  }
+  .planta-marco {
+    padding: 6px;
+  }
+  .planta-nota {
+    font-size: 0.82rem;
+  }
+  .velo {
+    padding: 0;
+  }
+  .carpeta {
+    min-height: 100%;
+    box-shadow: none;
+    border: 0;
+    padding-top: max(28px, env(safe-area-inset-top));
+  }
+  .carpeta-cerrar {
+    top: max(8px, env(safe-area-inset-top));
+    width: 44px;
+    height: 44px;
+  }
+  .documento {
+    font-size: 0.9rem;
+  }
+  .campos {
+    grid-template-columns: 1fr 1fr;
   }
   .encargo-rotulo {
     max-width: none;
@@ -1286,4 +1321,52 @@ input[type="text"] {
   .resumen {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ── la puerta (entrada con clave desde otro aparato) ─────────────────────── */
+.entrada {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.puerta {
+  width: min(380px, 100%);
+  text-align: center;
+  color: var(--crema);
+}
+
+.puerta h1 {
+  margin: 0;
+  font-family: var(--letra-titulo);
+  font-weight: 800;
+  font-size: 2.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.puerta .formulario-encargo {
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+  text-align: left;
+  color: var(--tinta);
+}
+
+.puerta .encargo-rotulo {
+  max-width: none;
+}
+
+.puerta input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--linea);
+  background: var(--papel-claro);
+  font-size: 1.05rem;
+}
+
+.puerta-aviso {
+  margin: 0;
+  font-style: italic;
+  color: var(--rojo-ladrillo);
 }

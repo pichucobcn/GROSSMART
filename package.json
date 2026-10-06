@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.mjs",
+    "movil": "node server/index.mjs --movil",
     "simulado": "OFICINA_EJECUTOR=simulado node server/index.mjs",
     "test": "node --test test/*.test.mjs"
   },

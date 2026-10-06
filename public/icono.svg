@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <pattern id="p" width="128" height="32" patternUnits="userSpaceOnUse">
+      <rect width="128" height="32" fill="#865838"/><rect width="52" height="16" fill="#8c5d3c"/><rect x="52" width="76" height="16" fill="#7d5134"/>
+      <rect y="16" width="30" height="16" fill="#7f5336"/><rect x="30" y="16" width="64" height="16" fill="#93643f"/><rect x="94" y="16" width="34" height="16" fill="#845739"/>
+      <g stroke="#3c2519" stroke-opacity=".5" stroke-width="1.2"><line x2="128"/><line y1="16" x2="128" y2="16"/><line x1="52" x2="52" y2="16"/><line x1="30" y1="16" x2="30" y2="32"/><line x1="94" y1="16" x2="94" y2="32"/></g>
+    </pattern>
+    <radialGradient id="l" cx=".5" cy=".42" r=".6"><stop offset="0" stop-color="#FFE7AE" stop-opacity=".45"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="6" dy="12" stdDeviation="10" flood-color="#1a100b" flood-opacity=".55"/></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#p)"/>
+  <rect width="512" height="512" fill="url(#l)"/>
+  <g transform="translate(256 250)" filter="url(#s)">
+    <ellipse rx="176" ry="158" fill="#2c2724"/>
+    <ellipse cx="-30" cy="-34" rx="128" ry="104" fill="#3a3430" opacity=".55"/>
+    <ellipse rx="176" ry="158" fill="none" stroke="#4d4540" stroke-width="7"/>
+    <ellipse rx="104" ry="120" fill="#862820"/>
+    <path d="M0 -108 C62 -108 92 -50 92 0 C92 62 52 108 0 108 C-52 108 -92 62 -92 0 C-92 -50 -62 -108 0 -108 Z" fill="#3d3732"/>
+    <path d="M0 -84 C10 -40 10 30 0 70 C-10 30 -10 -40 0 -84 Z" fill="#2a2522" opacity=".8"/>
+    <ellipse cx="-22" cy="-30" rx="52" ry="58" fill="#4a433d" opacity=".7"/>
+  </g>
+</svg>

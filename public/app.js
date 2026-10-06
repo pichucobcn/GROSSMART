@@ -52,6 +52,10 @@
 
   async function api(ruta, cuerpo) {
     const res = await fetch(ruta, cuerpo === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) });
+    if (res.status === 401) {
+      location.href = "/entrar"; // la llave caducó: volver a la puerta
+      throw new Error("Hace falta la clave de la oficina.");
+    }
     const datos = await res.json();
     if (!res.ok) throw new Error(datos.error || "La oficina no pudo atender la petición.");
     return datos;
@@ -709,6 +713,7 @@
       if (vista && (vista.tareaId === p.id || informe === p.id)) vista.refrescar();
     });
     fuente.onerror = () => {
+      fetch("/api/config").then((r) => r.status === 401 && (location.href = "/entrar"), () => {});
       const linea = $("#linea");
       linea.classList.remove("ok");
       linea.classList.add("mal");

@@ -19,6 +19,25 @@ npm start        # abre http://127.0.0.1:4321
 Para ensayar la interfaz sin llamar a Claude Code: `npm run simulado`.
 Pruebas: `npm test`.
 
+## Desde el móvil
+
+Los agentes trabajan en el ordenador, así que el móvil es un mando a distancia: **el ordenador tiene que estar encendido con la oficina abierta**.
+
+**Opción A · Desde cualquier sitio, con Tailscale (recomendada).** Tailscale crea una red privada entre tus aparatos. Es gratis para uso personal.
+1. Instala Tailscale en el ordenador y en el móvil ([tailscale.com/download](https://tailscale.com/download)) y entra con la misma cuenta en los dos.
+2. En el ordenador, con la oficina abierta (`npm start`): `tailscale serve --bg 4321`
+3. Tailscale muestra una dirección del tipo `https://tu-ordenador.tu-red.ts.net`. Ábrela en el móvil.
+
+Solo tus aparatos ven esa dirección. No uses `tailscale funnel`, que la publicaría en internet; aun así, la oficina pediría la clave a lo que llegue por ahí.
+
+**Opción B · En casa, por wifi.**
+```bash
+OFICINA_CLAVE="una-clave-larga" npm run movil
+```
+La consola muestra la dirección para el móvil (por ejemplo `http://192.168.1.20:4321`). La primera vez pide la clave; después la recuerda. Sin `OFICINA_CLAVE`, la oficina no se abre a otros aparatos.
+
+**Como app.** Con la oficina abierta en el móvil: en iPhone, Safari → Compartir → «Añadir a pantalla de inicio»; en Android, Chrome → menú → «Añadir a pantalla de inicio». Aparece el icono del sombrero y se abre a pantalla completa.
+
 ## Cómo funciona
 
 ```
@@ -71,6 +90,7 @@ server/index.mjs            servidor HTTP + avisos en vivo (SSE)
 server/oficina.mjs          Coordinación: plan, reparto, cola, prompts, memoria
 server/ejecutor.mjs         ejecutores: ACP (Claude Code) y ensayo
 server/acp.mjs              cliente del Agent Client Protocol
+server/acceso.mjs           la puerta: clave para entrar desde otro aparato
 server/almacen.mjs          archivo en disco
 public/                     la planta (SVG) y los expedientes
 test/                       pruebas (node --test)
