@@ -1670,3 +1670,21 @@ input[type="text"] {
 .propuesta-papelera .casilla-propuesta {
   color: var(--rojo-ladrillo);
 }
+
+.ya-ordenado {
+  margin-top: 22px;
+}
+
+.ya-ordenado > summary {
+  cursor: pointer;
+  margin-bottom: 10px;
+  font-family: var(--letra-maquina);
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.ya-ordenado .correo {
+  opacity: 0.75;
+}

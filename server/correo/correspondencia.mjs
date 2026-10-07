@@ -110,7 +110,7 @@ export class Correspondencia {
       ultimaRevision: this.estado.ultimaRevision || null,
       proximaRevision: this.#proxima(),
       mensajes: this.estado.mensajes
-        .filter((m) => m.ubicacion !== "papelera" && (refsConPropuesta.has(m.ref) || Date.now() - Date.parse(m.leidoEn || m.fecha) < 7 * 86_400_000))
+        .filter((m) => !["papelera", "fuera"].includes(m.ubicacion) && (refsConPropuesta.has(m.ref) || Date.now() - Date.parse(m.leidoEn || m.fecha) < 14 * 86_400_000))
         .slice(-150)
         .map(({ texto, ...m }) => ({ ...m, extracto: texto.slice(0, 600) })), // eslint-disable-line no-unused-vars
       propuestas: this.estado.propuestas.slice(-MAX_PROPUESTAS),
@@ -183,6 +183,7 @@ export class Correspondencia {
         }
         memoria.ultimoUid = r.ultimoUid;
         memoria.uidValidity = r.uidValidity;
+        await this.#sincronizarCuenta(buzon, cuenta);
         memoria.ultimaRevision = new Date().toISOString();
         memoria.error = null;
       } catch (e) {
@@ -200,6 +201,62 @@ export class Correspondencia {
       throw new Error(`No se pudo leer el correo. ${errores.join(" · ")}`);
     }
     return refs;
+  }
+
+  // Lo que Grossman movió o borró desde Gmail/Outlook deja de aparecer aquí.
+  async #sincronizarCuenta(buzon, cuenta) {
+    const memoria = this.estado.cuentas[cuenta.id] || {};
+    const enBandeja = this.estado.mensajes.filter((m) => m.cuenta === cuenta.id && String(m.uidValidity) === String(memoria.uidValidity) && (!m.ubicacion || m.ubicacion === "bandeja"));
+    if (!enBandeja.length || typeof buzon.enBandeja !== "function") return 0;
+    const presentes = await buzon.enBandeja(enBandeja.map((m) => m.uid));
+    let cambios = 0;
+    for (const m of enBandeja) {
+      if (presentes.has(m.uid)) continue;
+      m.ubicacion = "fuera";
+      this.#caducar(m.ref, "El correo ya no está en la bandeja de entrada.");
+      cambios++;
+    }
+    return cambios;
+  }
+
+  async sincronizar() {
+    let cambios = 0;
+    for (const cuenta of this.cuentas().filter((c) => c.lista)) {
+      let buzon;
+      try {
+        buzon = await this.crearBuzon(cuenta);
+        cambios += await this.#sincronizarCuenta(buzon, cuenta);
+      } catch (e) {
+        this.registro.warn(`[correo] sincronizar ${cuenta.id}: ${mensajeError(e)}`);
+      } finally {
+        await buzon?.cerrar();
+      }
+    }
+    if (cambios) {
+      this.#guardar();
+      this.oficina.avisarCambio();
+    }
+    return { cambios };
+  }
+
+  #caducar(ref, nota) {
+    for (const p of this.estado.propuestas) {
+      if (p.ref === ref && ["propuesta", "error"].includes(p.estado)) {
+        p.estado = "caducada";
+        p.nota = nota;
+      }
+    }
+  }
+
+  // Grossman ya se ocupó de estos correos: salen de «Por atender».
+  visto({ refs }) {
+    for (const m of this.#refsValidas(refs, 500)) {
+      m.atendido = true;
+      this.#caducar(m.ref, "Grossman lo dio por visto.");
+    }
+    this.#guardar();
+    this.oficina.avisarCambio();
+    return { ok: true };
   }
 
   #erroresCuentas() {
@@ -305,7 +362,7 @@ export class Correspondencia {
   }
 
   // ── comprobar y guardar las propuestas ───────────────────────────────────
-  #aplicar(t, texto) {
+  async #aplicar(t, texto) {
     const datos = leerJSON(texto);
     if (!datos) {
       t.estado = "error";
@@ -338,6 +395,15 @@ export class Correspondencia {
       else if (!r.propuesta) descartes.push(`Borrador nuevo: ${r.motivo}`);
     }
 
+    // Una propuesta nueva sobre un correo sustituye a las que seguían pendientes.
+    for (const ref of new Set(nuevas.map((p) => p.ref).filter(Boolean))) {
+      for (const p of this.estado.propuestas) {
+        if (p.ref === ref && p.estado === "propuesta") {
+          p.estado = "reemplazada";
+          p.nota = "La sustituye una propuesta más reciente.";
+        }
+      }
+    }
     for (const p of nuevas) {
       p.id = `C-${String(++this.estado.contador).padStart(5, "0")}`;
       p.estado = "propuesta";
@@ -347,17 +413,26 @@ export class Correspondencia {
     if (this.estado.propuestas.length > MAX_PROPUESTAS) this.estado.propuestas = this.estado.propuestas.slice(-MAX_PROPUESTAS);
     this.#guardar();
 
+    // Si Grossman señaló los correos y dijo qué hacer, se hace sin más pasos.
+    let hecho = null;
+    if (t.correo?.aplicar && nuevas.length) {
+      for (let i = 0; this.ocupada && i < 60; i++) await new Promise((r) => setTimeout(r, 1000));
+      hecho = this.ocupada ? null : await this.#ejecutar([...nuevas]);
+    }
+
     const resumen = String(datos.resumen || "").trim();
     t.resultado = [
       `# ${t.titulo}`,
       "",
       resumen || "_Sin resumen._",
       "",
-      `**${nuevas.length} propuesta${nuevas.length === 1 ? "" : "s"}** esperan su visto bueno en la pestaña **Correo** (${contar(nuevas)}).`,
+      hecho
+        ? `**Hecho: ${contar(nuevas.filter((p) => p.estado === "hecha"))}.**${hecho.errores.length ? `\n\n_No se pudo: ${hecho.errores.map((e) => e.error).join(" · ")}_` : ""}`
+        : `**${nuevas.length} propuesta${nuevas.length === 1 ? "" : "s"}** esperan su visto bueno en la pestaña **Correo** (${contar(nuevas)}).`,
       descartes.length ? `\n_Grossmart descartó ${descartes.length} propuesta(s) que no cumplían las reglas:_\n${descartes.map((d) => `- ${d}`).join("\n")}` : "",
       this.#erroresCuentas(),
     ].join("\n");
-    t.extracto = `${nuevas.length} propuestas de correo · ${resumen.replace(/[#*_\n]+/g, " ").slice(0, 200)}`;
+    t.extracto = `${hecho ? `Hecho: ${hecho.hechas}` : `${nuevas.length} propuestas`} · ${resumen.replace(/[#*_\n]+/g, " ").slice(0, 200)}`;
     t.estado = "terminada";
     t.terminadaEn = new Date().toISOString();
   }
@@ -415,7 +490,13 @@ export class Correspondencia {
   // ── Grossman decide ───────────────────────────────────────────────────────
   descartar({ ids }) {
     const lista = new Set(Array.isArray(ids) ? ids : []);
-    for (const p of this.estado.propuestas) if (lista.has(p.id) && p.estado === "propuesta") p.estado = "descartada";
+    for (const p of this.estado.propuestas) {
+      if (lista.has(p.id) && p.estado === "propuesta") {
+        p.estado = "descartada";
+        const m = p.ref && this.#mensaje(p.ref);
+        if (m) m.atendido = true;
+      }
+    }
     this.#guardar();
     this.oficina.avisarCambio();
     return { ok: true };
@@ -512,6 +593,7 @@ export class Correspondencia {
           p.estado = "hecha";
           p.hecha = new Date().toISOString();
           p.error = null;
+          if (m) m.atendido = true;
         } catch (e) {
           p.estado = "error";
           p.error = mensajeError(e);
@@ -552,6 +634,7 @@ export class Correspondencia {
     const texto = typeof entrada === "string" ? entrada.trim().slice(0, 5000) : "";
     if (!texto) throw new Error("Escriba qué quiere que haga Amelia.");
     let lista = this.#refsValidas(refs, 100);
+    const senalados = lista.length > 0;
     if (!lista.length) lista = this.#visibles().filter((m) => Date.now() - Date.parse(m.leidoEn || m.fecha) < 7 * 86_400_000).slice(-100);
     if (!lista.length) throw new Error("No hay correos recientes sobre los que trabajar.");
     const resumen = texto.replace(/\s+/g, " ");
@@ -564,17 +647,18 @@ export class Correspondencia {
       prioridad: "alta",
       origen: "manual",
       estado: "asignada",
-      correo: { revision: false, foco: true, refs: lista.map((m) => m.ref) },
+      // Correos señalados por Grossman: se hace lo que dice. Sin señalar: Amelia elige y él confirma.
+      correo: { revision: false, foco: true, aplicar: senalados, refs: lista.map((m) => m.ref) },
     });
   }
 
   #refsValidas(refs, max) {
     const lista = Array.isArray(refs) ? [...new Set(refs)].slice(0, max) : [];
-    return lista.map((r) => this.#mensaje(r)).filter((m) => m && m.ubicacion !== "papelera");
+    return lista.map((r) => this.#mensaje(r)).filter((m) => m && !["papelera", "fuera"].includes(m.ubicacion));
   }
 
   #visibles() {
-    return this.estado.mensajes.filter((m) => m.ubicacion !== "papelera");
+    return this.estado.mensajes.filter((m) => !["papelera", "fuera"].includes(m.ubicacion));
   }
 
   // ── Hotmail ───────────────────────────────────────────────────────────────

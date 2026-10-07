@@ -115,6 +115,13 @@ export class Buzon {
     };
   }
 
+  // Cuáles de estos correos siguen en la bandeja de entrada (para saber si
+  // Grossman los movió o borró desde Gmail/Outlook).
+  async enBandeja(uids) {
+    if (!uids.length) return new Set();
+    return this.#enBandeja(async () => new Set((await this.cliente.search({ uid: uids.join(",") }, { uid: true })) || []));
+  }
+
   // ── organizar ─────────────────────────────────────────────────────────────
   async marcarLeido(uid) {
     return this.#enBandeja(() => this.cliente.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true }));

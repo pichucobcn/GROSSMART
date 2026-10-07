@@ -92,7 +92,9 @@ Amelia, de Secretaría, lleva el correo: lo lee **a las 9:00 y a las 15:00 (hora
 En la bandeja, Grossman además puede:
 - **Seleccionar varios correos** y marcarlos como leídos, archivarlos o mandarlos a la papelera. Son órdenes suyas, así que se hacen al momento (con confirmación).
 - **Decir qué hacer con un correo**, con sus palabras, en la casilla de cada uno («respóndele que el jueves me va bien», «bórralo»).
-- **Dar una orden general** («manda a la papelera lo que no sea importante para mí»), para los seleccionados o para todo el correo de los últimos 7 días. Amelia decide correo a correo y Grossman confirma.
+- **Dar una orden general** («manda a la papelera lo que no sea importante para mí»). Con correos seleccionados (o en la casilla de un correo), Amelia lo hace directamente. Sin seleccionar, mira los últimos 7 días, decide correo a correo y Grossman confirma.
+
+La bandeja muestra solo lo que necesita atención: **Propuestas de Amelia**, **Por atender** (en la bandeja de entrada y sin tocar) y, plegado, **Ya ordenado**. Al abrirla, Grossmart pregunta a Gmail/Outlook qué sigue en la bandeja: lo que Grossman archivó o borró allí deja de aparecer y sus propuestas caducan. Una propuesta nueva sobre un correo sustituye a la anterior. El botón **Visto** quita un correo de «Por atender» sin tocarlo.
 
 - Acciones posibles: etiquetar (Gmail: etiqueta «Grossmart/…»; Hotmail: carpeta), marcar como leído, archivar (sale de la bandeja, no se borra), mandar a la papelera (recuperable 30 días) y guardar borrador.
 - Adjuntos: archivos subidos a un proyecto (en su archivo, «Archivos del proyecto») o adjuntos de correos recibidos. Como mucho 20 MB por borrador.

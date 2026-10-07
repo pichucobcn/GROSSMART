@@ -39,6 +39,10 @@ function buzonFalso(mensajes) {
       llamadas.push(["borrador", b]);
       return { carpeta: "[Gmail]/Drafts" };
     },
+    fuera: new Set(),
+    async enBandeja(uids) {
+      return new Set(uids.filter((u) => !buzon.fuera.has(u)));
+    },
     async cerrar() {},
   };
   return buzon;
@@ -281,7 +285,7 @@ test("órdenes directas de Grossman: varios correos a la papelera al momento", a
   await assert.rejects(() => correo.accionDirecta({ refs: ["gmail-7-1"], accion: "papelera" }), /No hay correos/, "ya estaba en la papelera");
 });
 
-test("una orden con palabras sobre correos concretos: Amelia propone solo para esos", async () => {
+test("una orden sobre correos señalados se cumple directamente, solo sobre esos", async () => {
   const { correo, almacen, recibidos, buzon } = montar({
     mensajes: [mensaje(1, "promo@tienda.com", "Ofertas", "Rebajas"), mensaje(2, "ana@barnabeat.com", "Rider", "¿Me lo pasas?")],
     responder: ({ prompt }) =>
@@ -297,11 +301,55 @@ test("una orden con palabras sobre correos concretos: Amelia propone solo para e
   assert.match(prompt, /Borra este, que no me interesa/);
   assert.match(prompt, /ref=gmail-7-1 /);
   assert.doesNotMatch(prompt, /ref=gmail-7-2 /, "solo el correo señalado");
-  const props = correo.resumen().propuestas;
-  assert.deepEqual(props.map((p) => `${p.tipo}:${p.ref}`).sort(), ["etiquetar:gmail-7-1", "papelera:gmail-7-1"], "nada sobre correos no señalados");
+  assert.deepEqual(buzon.llamadas, [["papelera", 1]], "hecho sin pedir más confirmación; nada sobre el correo no señalado");
+  assert.match(almacen.tarea(t.id).resultado, /Hecho: 1 a la papelera/);
+  assert.equal(correo.resumen().pendientes, 0);
+  assert.deepEqual(correo.resumen().mensajes.map((m) => m.ref), ["gmail-7-2"]);
+});
+
+test("una orden general (sin señalar correos) solo propone: Grossman confirma", async () => {
+  const { correo, almacen, buzon } = montar({
+    mensajes: [mensaje(1, "promo@tienda.com", "Ofertas", "Rebajas"), mensaje(2, "ana@barnabeat.com", "Rider", "¿Me lo pasas?")],
+    responder: ({ prompt }) =>
+      prompt.includes("ENCARGO DE GROSSMAN") ? json({ resumen: "Propongo.", mensajes: [{ ref: "gmail-7-1", acciones: [{ tipo: "papelera" }] }] }) : json({ resumen: "ok", mensajes: [] }),
+  });
+  const r0 = correo.revisar();
+  await esperar(() => almacen.tarea(r0.id).estado === "terminada");
+  const t = correo.instruir({ texto: "Borra lo que no sea importante para mí" });
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
   assert.deepEqual(buzon.llamadas, [], "propone, no ejecuta");
-  const r = await correo.aprobar({ ids: props.map((p) => p.id) });
-  assert.equal(r.hechas, 1);
-  assert.deepEqual(buzon.llamadas, [["papelera", 1]], "etiquetar sobra si va a la papelera");
-  assert.equal(correo.resumen().propuestas.find((p) => p.tipo === "etiquetar").estado, "descartada");
+  assert.equal(correo.resumen().pendientes, 1);
+});
+
+test("lo que Grossman mueve o borra desde Gmail desaparece de la bandeja y sus propuestas caducan", async () => {
+  const { correo, almacen, buzon } = montar({
+    mensajes: [mensaje(1, "a@x.com", "Uno", "x"), mensaje(2, "b@x.com", "Dos", "y")],
+    responder: () => json({ resumen: "ok", mensajes: [{ ref: "gmail-7-1", acciones: [{ tipo: "leido" }] }, { ref: "gmail-7-2", acciones: [{ tipo: "leido" }] }] }),
+  });
+  const t = correo.revisar();
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  assert.equal(correo.resumen().pendientes, 2);
+  buzon.fuera.add(1); // Grossman lo archivó en Gmail
+  const r = await correo.sincronizar();
+  assert.equal(r.cambios, 1);
+  assert.deepEqual(correo.resumen().mensajes.map((m) => m.ref), ["gmail-7-2"]);
+  assert.equal(correo.resumen().pendientes, 1);
+  assert.equal(correo.resumen().propuestas.find((p) => p.ref === "gmail-7-1").estado, "caducada");
+});
+
+test("una propuesta nueva sobre un correo sustituye a la anterior; «visto» lo quita de lo pendiente", async () => {
+  let vuelta = 0;
+  const { correo, almacen } = montar({
+    mensajes: [mensaje(1, "a@x.com", "Uno", "x")],
+    responder: () => json({ resumen: "ok", mensajes: [{ ref: "gmail-7-1", acciones: [++vuelta === 1 ? { tipo: "leido" } : { tipo: "archivar" }] }] }),
+  });
+  const t = correo.revisar();
+  await esperar(() => almacen.tarea(t.id).estado === "terminada");
+  const t2 = correo.instruir({ texto: "Revisa otra vez" });
+  await esperar(() => almacen.tarea(t2.id).estado === "terminada");
+  const estados = correo.resumen().propuestas.map((p) => `${p.tipo}:${p.estado}`);
+  assert.deepEqual(estados, ["leido:reemplazada", "archivar:propuesta"]);
+  correo.visto({ refs: ["gmail-7-1"] });
+  assert.equal(correo.resumen().pendientes, 0);
+  assert.equal(correo.resumen().mensajes[0].atendido, true);
 });

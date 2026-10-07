@@ -287,9 +287,12 @@
     }
   }
 
-  async function abrirBandeja() {
+  async function abrirBandeja({ sincronizar = true } = {}) {
     let datos;
     try {
+      // Primero se pregunta a Gmail/Outlook qué sigue en la bandeja (lo que usted
+      // movió o borró allí deja de aparecer aquí).
+      if (sincronizar) await api("/api/correo/sincronizar", {}).catch(() => null);
       datos = await api("/api/correo");
     } catch (e) {
       return aviso(e.message, true);
@@ -303,7 +306,10 @@
     const vivas = (lista) => (lista || []).some((p) => ["propuesta", "error"].includes(p.estado));
     const mensajes = new Map(datos.mensajes.map((m) => [m.ref, m]));
     const grupos = [...porRef.entries()].filter(([, lista]) => vivas(lista)).reverse();
-    const recientes = datos.mensajes.filter((m) => !vivas(porRef.get(m.ref))).slice(-60).reverse();
+    const sinPropuesta = datos.mensajes.filter((m) => !vivas(porRef.get(m.ref)));
+    // Por atender: en la bandeja de entrada y sin tocar. Ya ordenado: lo demás.
+    const porAtender = sinPropuesta.filter((m) => !m.atendido && (!m.ubicacion || m.ubicacion === "bandeja")).slice(-60).reverse();
+    const ordenados = sinPropuesta.filter((m) => m.atendido || (m.ubicacion && m.ubicacion !== "bandeja")).slice(-40).reverse();
     const nombreCuenta = (id) => datos.cuentas.find((c) => c.id === id)?.nombre || id;
     const descripcion = (p) =>
       ({
@@ -353,6 +359,7 @@
         <form class="orden-correo" data-ref="${esc(m.ref)}">
           <input type="text" name="texto" maxlength="2000" placeholder="¿Qué hago con este correo? Ej.: «respóndele que el jueves me va bien»" aria-label="Orden para Amelia sobre este correo">
           <button class="boton" type="submit">A Amelia</button>
+          ${m.atendido ? "" : `<button class="boton boton-discreto" type="button" data-visto="${esc(m.ref)}" title="Ya me ocupo yo: quitar de «Por atender»">Visto</button>`}
         </form>
       </article>`;
     };
@@ -370,7 +377,7 @@
         <label class="encargo-rotulo" for="orden-texto">Dígale a Amelia qué hacer</label>
         <textarea id="orden-texto" name="texto" maxlength="5000" placeholder="Por ejemplo: «manda a la papelera los correos que no sean importantes para mí» o «prepara respuestas a todos los de Barnabeat»"></textarea>
         <div class="fila-campos" style="justify-content:space-between;margin:8px 0 0">
-          <span class="ficha-meta" id="alcance-orden">Se aplicará a todo el correo de los últimos 7 días.</span>
+          <span class="ficha-meta" id="alcance-orden">Sin correos seleccionados: Amelia mira los últimos 7 días y le propone; usted confirma.</span>
           <button class="boton boton-principal" type="submit">Encargar a Amelia</button>
         </div>
       </form>
@@ -385,8 +392,9 @@
 
       ${grupos.length ? `<section class="bloque"><h3>Propuestas de Amelia</h3>${grupos.map(([ref, lista]) => tarjeta(mensajes.get(ref), lista)).join("")}
         <div class="acciones barra-aprobar"><button class="boton" id="descartar-correo" type="button">Descartar las marcadas</button><button class="boton boton-principal" id="aprobar-correo" type="button">Aprobar las marcadas</button></div></section>` : ""}
-      ${recientes.length ? `<section class="bloque" style="margin-top:22px"><h3 class="titulo-con-boton">Correo reciente <label class="ficha-meta" style="text-transform:none;letter-spacing:0"><input type="checkbox" id="elegir-todos"> seleccionar todos</label></h3>${recientes.map((m) => tarjeta(m, (porRef.get(m.ref) || []).filter((p) => p.estado === "hecha"))).join("")}</section>` : ""}
-      ${!grupos.length && !recientes.length ? `<p class="vacio">Todavía no hay correo leído. Pulse «Revisar el correo ahora» en la pestaña Correo.</p>` : ""}`,
+      <div id="amelia-trabajando"></div>
+      ${porAtender.length ? `<section class="bloque" style="margin-top:22px"><h3 class="titulo-con-boton">Por atender (${porAtender.length}) <label class="ficha-meta" style="text-transform:none;letter-spacing:0"><input type="checkbox" id="elegir-todos"> seleccionar todos</label></h3>${porAtender.map((m) => tarjeta(m, [])).join("")}</section>` : grupos.length ? "" : `<p class="vacio" style="margin-top:20px">Bandeja al día: no hay nada por atender.</p>`}
+      ${ordenados.length ? `<details class="ya-ordenado"><summary>Ya ordenado (${ordenados.length})</summary>${ordenados.map((m) => tarjeta(m, (porRef.get(m.ref) || []).filter((p) => p.estado === "hecha"))).join("")}</details>` : ""}`,
       {},
     );
 
@@ -396,7 +404,9 @@
       const n = elegidos().length;
       carpeta.querySelector("#barra-seleccion").hidden = n === 0;
       carpeta.querySelector("#cuenta-seleccion").textContent = `${n} correo${n === 1 ? "" : "s"} seleccionado${n === 1 ? "" : "s"}:`;
-      carpeta.querySelector("#alcance-orden").textContent = n ? `Se aplicará solo a los ${n} correos seleccionados.` : "Se aplicará a todo el correo de los últimos 7 días.";
+      carpeta.querySelector("#alcance-orden").textContent = n
+        ? `Con ${n} correo${n === 1 ? "" : "s"} seleccionado${n === 1 ? "" : "s"}: Amelia lo hace directamente.`
+        : "Sin correos seleccionados: Amelia mira los últimos 7 días y le propone; usted confirma.";
     };
     carpeta.addEventListener("change", (ev) => {
       if (ev.target.id === "elegir-todos") {
@@ -424,18 +434,40 @@
       });
     }
 
-    // Órdenes con palabras: a Amelia (propone y usted confirma).
+    // «Visto»: usted se ocupa; sale de «Por atender» sin tocar el correo.
+    carpeta.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-visto]");
+      if (!b) return;
+      await api("/api/correo/visto", { refs: [b.dataset.visto] }).catch((e) => aviso(e.message, true));
+      abrirBandeja({ sincronizar: false });
+    });
+
+    // Órdenes con palabras. Con correos señalados, Amelia lo hace directamente;
+    // sin señalar, propone y usted confirma. La bandeja se actualiza sola al terminar.
     const encargar = async (refs, texto, boton) => {
       if (!texto.trim()) return aviso("Escriba qué quiere que haga Amelia.", true);
       boton.disabled = true;
+      let t;
       try {
-        const t = await api("/api/correo/instruir", { refs, texto });
-        aviso("Amelia se pone con ello. Sus propuestas aparecerán aquí para que las confirme.");
-        abrirTarea(t.id);
+        t = await api("/api/correo/instruir", { refs, texto });
       } catch (e) {
         aviso(e.message, true);
         boton.disabled = false;
+        return;
       }
+      const zona = carpeta.querySelector("#amelia-trabajando");
+      zona.innerHTML = `<p class="recuadro-pregunta" style="margin-top:16px"><strong>Amelia está con ello</strong><br>«${esc(texto.trim().slice(0, 140))}». La bandeja se actualizará sola en cuanto termine.</p>`;
+      zona.scrollIntoView({ behavior: "smooth", block: "center" });
+      const inicio = Date.now();
+      const mirar = setInterval(async () => {
+        const hecha = tarea(t.id);
+        if (!document.body.contains(zona) || Date.now() - inicio > 10 * 60_000) return clearInterval(mirar);
+        if (hecha && ["terminada", "error"].includes(hecha.estado)) {
+          clearInterval(mirar);
+          aviso(hecha.estado === "error" ? `Amelia no pudo: ${hecha.error}` : hecha.extracto || "Listo.", hecha.estado === "error");
+          abrirBandeja({ sincronizar: false });
+        }
+      }, 1500);
     };
     carpeta.querySelector("#orden-general").addEventListener("submit", (ev) => {
       ev.preventDefault();

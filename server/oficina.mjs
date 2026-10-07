@@ -346,7 +346,7 @@ export class Oficina extends EventEmitter {
       });
       if (t.estado !== "trabajando") return; // Grossman la cerró mientras tanto.
       if (extension) {
-        extension.aplicar(t, texto);
+        await extension.aplicar(t, texto);
         t.historial.push(this.#apunte(t.estado === "terminada" ? "Entrega su trabajo." : `Error: ${t.error}`));
       } else if (t.tipo === "plan") this.#aplicarPlan(t, texto);
       else if (t.tipo === "importacion") this.#aplicarImportacion(t, texto);
