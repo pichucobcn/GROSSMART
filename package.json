@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.86.0",
-    "imapflow": "2.0.7",
+    "imapflow": "2.5.2",
     "mailparser": "3.9.28",
     "nodemailer": "10.0.10"
   }
